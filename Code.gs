@@ -35,14 +35,14 @@ const HEADER_MAP = {
 // ── Menu ─────────────────────────────────────────────────────
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Bias for Action")
+    .createMenu("Bias for Action!")
     .addItem("Open", "showSidebar")
     .addToUi();
 }
 
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile("Sidebar")
-    .setTitle("Bias for Action")
+    .setTitle("Bias for Action!")
     .setWidth(420);
   SpreadsheetApp.getUi().showSidebar(html);
 }
