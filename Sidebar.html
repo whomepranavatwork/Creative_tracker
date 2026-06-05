@@ -198,34 +198,29 @@
 <script>
   let opts = {};
   let files = [];
+  let sheetCtx = {};  // cached: colIndex, headerRow, lastDataRow, nextSno
 
   // ── Init ──────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("date").value = new Date().toISOString().split("T")[0];
 
-    // Load dropdown options
+    // Single call replaces getDropdownOptions + getSheetNames (saves one round trip)
     google.script.run
-      .withSuccessHandler(o => { opts = o; populateDropdowns(); })
-      .withFailureHandler(err => showStatus("Failed to load options: " + err.message, false))
-      .getDropdownOptions();
+      .withSuccessHandler(data => {
+        opts = data.dropdownOptions;
+        populateDropdowns();
 
-    // Load sheet tab names
-    google.script.run
-      .withSuccessHandler(names => {
         const sel = document.getElementById("tab-name");
         sel.innerHTML = "";
-        names.forEach(name => {
+        data.sheetNames.forEach(name => {
           const opt = document.createElement("option");
           opt.value = name; opt.textContent = name;
           sel.appendChild(opt);
         });
-        // Auto-select first tab and load its context
         onTabChange();
       })
-      .withFailureHandler(() => {
-        document.getElementById("sheet-info").textContent = "Could not load sheet tabs.";
-      })
-      .getSheetNames();
+      .withFailureHandler(err => showStatus("Failed to load: " + err.message, false))
+      .init();
   });
 
   function onTabChange() {
@@ -233,10 +228,11 @@
     document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
       .withSuccessHandler(ctx => {
+        sheetCtx = ctx;  // cache colIndex, headerRow, lastDataRow, nextSno
         document.getElementById("sheet-info").textContent =
           `${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
       })
-      .withFailureHandler(err => {
+      .withFailureHandler(() => {
         document.getElementById("sheet-info").textContent =
           "⚠ No tracker headers found on this tab.";
       })
@@ -427,13 +423,12 @@
         document.getElementById("submit-status").textContent = "";
         showStatus(result.msg, result.ok);
         if (result.ok) {
-          // Refresh sheet context with the same tab
-          google.script.run
-            .withSuccessHandler(ctx => {
-              document.getElementById("sheet-info").textContent =
-                `${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
-            })
-            .getSheetContext(document.getElementById("tab-name").value);
+          // Update cache and banner from returned values — no extra server call needed
+          sheetCtx.nextSno     = result.nextSno;
+          sheetCtx.lastDataRow = result.lastDataRow;
+          sheetCtx.totalRows   = result.totalRows;
+          document.getElementById("sheet-info").textContent =
+            `${result.totalRows} existing rows · Next S.No.: ${result.nextSno}`;
         }
       })
       .withFailureHandler(err => {
@@ -441,7 +436,16 @@
         document.getElementById("submit-status").textContent = "";
         showStatus("Error: " + err.message, false);
       })
-      .addEntries({ tabName: document.getElementById("tab-name").value, shared, cuts });
+      .addEntries({
+        tabName:     document.getElementById("tab-name").value,
+        colIndex:    sheetCtx.colIndex,
+        headerRow:   sheetCtx.headerRow,
+        lastDataRow: sheetCtx.lastDataRow,
+        nextSno:     sheetCtx.nextSno,
+        totalRows:   sheetCtx.totalRows,
+        shared,
+        cuts
+      });
   }
 
   function showStatus(msg, ok) {

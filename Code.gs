@@ -2,10 +2,9 @@
 // Creative Tracker — Bulk Entry Automation
 // ============================================================
 
-const FORCE_SHEET_NAME   = "";   // leave blank — user picks tab in sidebar
+const FORCE_SHEET_NAME    = "";  // leave blank — user picks tab in sidebar
 const HEADER_SEARCH_LIMIT = 20;
 
-// Header text must match your sheet exactly (case-sensitive)
 const HEADER_MAP = {
   sno:             "S.No.",
   date:            "Date Added",
@@ -48,22 +47,81 @@ function showSidebar() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-// ── Called by sidebar on load ─────────────────────────────────
-function getSheetNames() {
-  return SpreadsheetApp.getActiveSpreadsheet()
-    .getSheets()
-    .map(s => s.getName());
+// ── Single init call: replaces getSheetNames + getDropdownOptions ─
+// Returns everything the sidebar needs on load in one round trip.
+function init() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheetNames = ss.getSheets().map(s => s.getName());
+
+  return {
+    sheetNames,
+    dropdownOptions: {
+      funnel:          ["BOF", "MOF", "TOF"],
+      intInf:          ["Inf", "Int", "Hair Warriors"],
+      adType:          ["Reel", "Static", "Carousel"],
+      language:        ["Hinglish", "English", "Hindi"],
+      adFormat:        ["Educational", "Non Vo", "Statics", "Testimonial",
+                        "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
+      narrative:       ["Problem-Solution", "Results/Assurance", "Myth Busting",
+                        "Trust", "Features", "Why MM is different", "Safety",
+                        "Science", "BeforeAfter", "Transplant or PRP",
+                        "Product First", "Results/Assurance/ProductFirst"],
+      creatorType:     ["", "Meta Creator", "Hair Warrior"],
+      onboardingMonth: ["", "Oct'25", "Nov'25", "Dec'25", "Jan'26", "Feb'26",
+                        "March'26", "April'26", "May'26", "June'26"],
+      live:            ["No", "Yes"],
+      canLive:         ["Yes", "No"],
+      ratio:           ["9:16", "4:5"]
+    }
+  };
 }
 
+// ── Called when user picks a tab ──────────────────────────────
+// Returns context AND colIndex/headerRow so sidebar can cache them.
 function getSheetContext(tabName) {
   const { sheet, colIndex, headerRow } = resolveSheet(tabName);
-  const nextSno = getNextSerialNumber(sheet, colIndex.sno, headerRow);
   const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+
+  // Single batched read: get S.No. column and Date Added column together
+  const lastRow   = sheet.getLastRow();
+  const dataRows  = lastRow - headerRow;
+  let nextSno     = 1;
+  let lastDataRow = headerRow;
+
+  if (dataRows > 0) {
+    // Read S.No. and Date Added columns in one getValues call
+    const snoCol  = colIndex.sno;
+    const dateCol = colIndex.date ?? colIndex.drive916 ?? colIndex.drive45;
+    const minCol  = Math.min(snoCol, dateCol) + 1;           // 1-indexed
+    const maxCol  = Math.max(snoCol, dateCol) + 1;
+    const width   = maxCol - minCol + 1;
+
+    const data = sheet
+      .getRange(headerRow + 1, minCol, dataRows, width)
+      .getValues();
+
+    const snoOffset  = snoCol  + 1 - minCol;
+    const dateOffset = dateCol + 1 - minCol;
+
+    let maxSno = 0;
+    for (let i = data.length - 1; i >= 0; i--) {
+      const n = parseInt(data[i][snoOffset], 10);
+      if (!isNaN(n) && n > maxSno) maxSno = n;
+      if (lastDataRow === headerRow && data[i][dateOffset] !== "") {
+        lastDataRow = headerRow + 1 + i;
+      }
+    }
+    nextSno = maxSno + 1;
+  }
+
   return {
-    sheetName: sheet.getName(),
-    nextSno:   String(nextSno).padStart(5, "0"),
-    today:     today,
-    totalRows: sheet.getLastRow() - headerRow
+    sheetName:   sheet.getName(),
+    nextSno:     String(nextSno).padStart(5, "0"),
+    today,
+    totalRows:   dataRows,
+    lastDataRow,           // cached — passed back with addEntries
+    colIndex,              // cached — passed back with addEntries
+    headerRow              // cached — passed back with addEntries
   };
 }
 
@@ -96,19 +154,28 @@ function getFolderFiles(folderUrl) {
 }
 
 // ── Called by sidebar: writes rows to the sheet ───────────────
+// payload includes cached colIndex, headerRow, lastDataRow, nextSno
+// so no sheet re-scanning is needed.
 function addEntries(payload) {
   try {
-    const { sheet, colIndex, headerRow } = resolveSheet(payload.tabName);
-    const lastCol     = sheet.getLastColumn();
-    const today       = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    const nextSno     = getNextSerialNumber(sheet, colIndex.sno, headerRow);
-    const shared      = payload.shared;
-    const cuts        = payload.cuts;
+    const tabName    = payload.tabName;
+    const shared     = payload.shared;
+    const cuts       = payload.cuts;
+    const colIndex   = payload.colIndex;
+    const headerRow  = payload.headerRow;
+    const nextSno    = parseInt(payload.nextSno, 10);
+    const firstNewRow = payload.lastDataRow + 1;
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const firstNewRow = getLastDataRow(sheet, colIndex, headerRow) + 1;
-    const rows        = [];
+    const ss     = SpreadsheetApp.getActiveSpreadsheet();
+    const name   = tabName || FORCE_SHEET_NAME;
+    const sheet  = name ? ss.getSheetByName(name) : ss.getActiveSheet();
+    if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
+
+    const lastCol = sheet.getLastColumn();
+    const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    const rows    = [];
 
     cuts.forEach((cut, i) => {
       const sno = String(nextSno + i).padStart(5, "0");
@@ -142,40 +209,42 @@ function addEntries(payload) {
       rows.push(row);
     });
 
-    // Write all values in one API call
+    // Write values
     sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
 
-    // Make Drive links clickable hyperlinks
+    // Hyperlink Drive link columns
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
-    // Copy formulas (Ad Name, YT Ad Name) from the last existing data row
-    // using copyTo so relative row references adjust automatically
+    // Copy Ad Name / YT Ad Name formulas from the row above
     const formulaSourceRow = firstNewRow - 1;
     if (formulaSourceRow > headerRow) {
       [colIndex.adName, colIndex.ytAdName].forEach(col => {
         if (col == null) return;
-        const srcCell  = sheet.getRange(formulaSourceRow, col + 1);
+        const srcCell = sheet.getRange(formulaSourceRow, col + 1);
         if (!srcCell.getFormula()) return;
-        const destRange = sheet.getRange(firstNewRow, col + 1, rows.length, 1);
-        srcCell.copyTo(destRange, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+        sheet.getRange(firstNewRow, col + 1, rows.length, 1)
+          .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
       });
     }
 
     return {
       ok:  true,
-      msg: `Added ${rows.length} entr${rows.length === 1 ? "y" : "ies"} (S.No. ${String(nextSno).padStart(5,"0")} – ${String(nextSno + rows.length - 1).padStart(5,"0")}) on sheet "${sheet.getName()}", rows ${firstNewRow}–${firstNewRow + rows.length - 1}.`
+      msg: `Added ${rows.length} entr${rows.length === 1 ? "y" : "ies"} (S.No. ${String(nextSno).padStart(5,"0")} – ${String(nextSno + rows.length - 1).padStart(5,"0")}) on sheet "${sheet.getName()}", rows ${firstNewRow}–${firstNewRow + rows.length - 1}.`,
+      // Return updated values so sidebar can refresh without another server call
+      nextSno:     String(nextSno + rows.length).padStart(5, "0"),
+      lastDataRow: firstNewRow + rows.length - 1,
+      totalRows:   payload.totalRows + rows.length
     };
 
   } catch (e) {
-    // Return the full error so the sidebar can display it
     return { ok: false, msg: e.message + "\n" + e.stack };
   }
 }
 
-// ── Sheet resolution ──────────────────────────────────────────
+// ── Sheet resolution (only used by getSheetContext) ───────────
 function resolveSheet(tabName) {
-  const ss   = SpreadsheetApp.getActiveSpreadsheet();
-  const name = tabName || FORCE_SHEET_NAME;
+  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const name  = tabName || FORCE_SHEET_NAME;
   const sheet = name ? ss.getSheetByName(name) : ss.getActiveSheet();
   if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
 
@@ -185,7 +254,9 @@ function resolveSheet(tabName) {
 
 function detectHeaders(sheet) {
   const limit = Math.min(HEADER_SEARCH_LIMIT, sheet.getLastRow());
-  const data  = sheet.getRange(1, 1, limit, sheet.getLastColumn()).getValues();
+  // Only read the first 30 columns — headers are always in the left portion
+  const readCols = Math.min(30, sheet.getLastColumn());
+  const data  = sheet.getRange(1, 1, limit, readCols).getValues();
 
   const reverseMap = {};
   Object.entries(HEADER_MAP).forEach(([key, text]) => reverseMap[text] = key);
@@ -202,48 +273,11 @@ function detectHeaders(sheet) {
 
   throw new Error(
     "Could not find the header row (looked at rows 1–" + limit + "). " +
-    "Make sure the correct sheet tab is active, or set FORCE_SHEET_NAME in Code.gs."
+    "Make sure the correct sheet tab is selected."
   );
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-function getNextSerialNumber(sheet, snoCol, headerRow) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= headerRow) return 1;
-
-  // Read the entire S.No. column in one call
-  const values = sheet
-    .getRange(headerRow + 1, snoCol + 1, lastRow - headerRow, 1)
-    .getValues();
-
-  let max = 0;
-  values.forEach(([v]) => {
-    const n = parseInt(v, 10);
-    if (!isNaN(n) && n > max) max = n;
-  });
-  return max + 1;
-}
-
-// Returns the last row with an actual entry by scanning the Date Added column,
-// which is never pre-filled unlike S.No. or Product Name.
-function getLastDataRow(sheet, colIndex, headerRow) {
-  const lastRow = sheet.getLastRow();
-  if (lastRow <= headerRow) return headerRow;
-
-  // Prefer Date Added; fall back to Drive 9:16, then Drive 4:5
-  const col = colIndex.date ?? colIndex.drive916 ?? colIndex.drive45 ?? colIndex.sno;
-
-  const values = sheet
-    .getRange(headerRow + 1, col + 1, lastRow - headerRow, 1)
-    .getValues();
-
-  for (let i = values.length - 1; i >= 0; i--) {
-    if (values[i][0] !== "") return headerRow + 1 + i;
-  }
-  return headerRow;
-}
-
-// Writes Drive links as clickable hyperlinks using RichText.
 function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
   [colIndex.drive45, colIndex.drive916].forEach(col => {
     if (col == null) return;
@@ -251,9 +285,7 @@ function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
       const url = row[col];
       if (!url) return SpreadsheetApp.newRichTextValue().setText("").build();
       return SpreadsheetApp.newRichTextValue()
-        .setText(url)
-        .setLinkUrl(url)
-        .build();
+        .setText(url).setLinkUrl(url).build();
     });
     sheet.getRange(firstNewRow, col + 1, rows.length, 1)
       .setRichTextValues(richValues.map(v => [v]));
@@ -267,26 +299,4 @@ function set(row, col, value) {
 function extractDriveFolderId(url) {
   const m = String(url).match(/folders\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
-}
-
-// ── Dropdown options (sent to sidebar on load) ────────────────
-function getDropdownOptions() {
-  return {
-    funnel:      ["BOF", "MOF", "TOF"],
-    intInf:      ["Inf", "Int", "Hair Warriors"],
-    adType:      ["Reel", "Static", "Carousel"],
-    language:    ["Hinglish", "English", "Hindi"],
-    adFormat:    ["Educational", "Non Vo", "Statics", "Testimonial",
-                  "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
-    narrative:   ["Problem-Solution", "Results/Assurance", "Myth Busting",
-                  "Trust", "Features", "Why MM is different", "Safety",
-                  "Science", "BeforeAfter", "Transplant or PRP",
-                  "Product First", "Results/Assurance/ProductFirst"],
-    creatorType:     ["", "Meta Creator", "Hair Warrior"],
-    onboardingMonth: ["", "Oct'25", "Nov'25", "Dec'25", "Jan'26", "Feb'26",
-                      "March'26", "April'26", "May'26", "June'26"],
-    live:        ["No", "Yes"],
-    canLive:     ["Yes", "No"],
-    ratio:       ["9:16", "4:5"]
-  };
 }
