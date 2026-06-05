@@ -187,7 +187,6 @@ function addEntries(payload) {
     const headerRow    = payload.headerRow;
     const nextSno      = parseInt(payload.nextSno, 10);
     const firstNewRow  = payload.lastDataRow + 1;
-    const adNameFormula = payload.adNameFormula || "";
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 

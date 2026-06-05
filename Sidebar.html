@@ -386,7 +386,7 @@
 
   // ── Submit ────────────────────────────────────────────────
   function submitEntries() {
-    if (files.length === 0) return;
+    if (files.length === 0) { showStatus("Load a Drive folder first (Step 1).", false); return; }
 
     const shared = {
       product:         document.getElementById("product").value.trim(),
