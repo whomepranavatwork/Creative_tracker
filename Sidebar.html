@@ -360,6 +360,15 @@
 
   const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
+  const TAB_PRODUCT_MAP = {
+    "Biotin":       "Biotin30",
+    "S1":           "Stage 1",
+    "S2":           "Stage2",
+    "S3":           "Stage3",
+    "Form Testing": "Selfasst",
+    "Cetosomal":    "Advance Regime"
+  };
+
   // ── Init ──────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("date").value = new Date().toISOString().split("T")[0];
@@ -389,6 +398,8 @@
   function onTabChange() {
     if (files.length > 0) resetBatch();
     const tabName = document.getElementById("tab-name").value;
+    const mapped = TAB_PRODUCT_MAP[tabName];
+    if (mapped) document.getElementById("product").value = mapped;
     document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
       .withSuccessHandler(ctx => {
