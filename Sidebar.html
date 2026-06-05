@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 13px; color: #202124; background: #fff; }
+
+  .section { padding: 12px 14px; border-bottom: 1px solid #e0e0e0; }
+  .section:last-child { border-bottom: none; }
+
+  h3 { font-size: 13px; font-weight: 600; color: #1a73e8; margin-bottom: 10px; }
+
+  label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 2px; margin-top: 8px; }
+  label:first-of-type { margin-top: 0; }
+
+  input[type=text], input[type=date], select, textarea {
+    width: 100%; padding: 6px 8px; border: 1px solid #dadce0;
+    border-radius: 4px; font-size: 13px; color: #202124;
+    background: #fff;
+  }
+  input:focus, select:focus, textarea:focus {
+    outline: none; border-color: #1a73e8;
+  }
+  textarea { resize: vertical; min-height: 52px; }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  .folder-row { display: flex; gap: 6px; }
+  .folder-row input { flex: 1; }
+
+  button {
+    padding: 7px 14px; border: none; border-radius: 4px;
+    font-size: 13px; cursor: pointer;
+  }
+  .btn-primary { background: #1a73e8; color: #fff; }
+  .btn-primary:hover { background: #1557b0; }
+  .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; }
+  .btn-secondary { background: #f1f3f4; color: #202124; }
+  .btn-secondary:hover { background: #e8eaed; }
+
+  #status { padding: 8px 14px; font-size: 12px; }
+  .status-ok  { color: #188038; background: #e6f4ea; border-radius: 4px; padding: 8px; }
+  .status-err { color: #c5221f; background: #fce8e6; border-radius: 4px; padding: 8px; }
+  .status-info { color: #5f6368; }
+
+  /* Cuts table */
+  #cuts-section { display: none; }
+  .cuts-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  .cuts-table th {
+    background: #f1f3f4; font-size: 11px; font-weight: 600;
+    padding: 5px 6px; text-align: left; border: 1px solid #e0e0e0;
+  }
+  .cuts-table td { padding: 4px 4px; border: 1px solid #e0e0e0; vertical-align: middle; }
+  .cuts-table td.fname {
+    font-size: 11px; color: #5f6368; max-width: 90px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .cuts-table select { padding: 3px 4px; font-size: 12px; }
+
+  .footer { padding: 12px 14px; display: flex; gap: 8px; align-items: center; }
+
+  .sheet-info { font-size: 11px; color: #9aa0a6; padding: 4px 14px 0; }
+</style>
+</head>
+<body>
+
+<!-- Sheet context banner -->
+<div class="sheet-info" id="sheet-info">Loading sheet info…</div>
+
+<!-- Step 1: Folder -->
+<div class="section">
+  <h3>Step 1 — Drive Folder</h3>
+  <label>Paste the Google Drive folder link</label>
+  <div class="folder-row">
+    <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
+    <button class="btn-secondary" onclick="loadFolder()">Load</button>
+  </div>
+  <div id="folder-status" class="status-info" style="margin-top:6px;font-size:12px;"></div>
+</div>
+
+<!-- Step 2: Shared fields -->
+<div class="section">
+  <h3>Step 2 — Shared Fields (same for all cuts)</h3>
+
+  <div class="row2">
+    <div>
+      <label>Product Name</label>
+      <input type="text" id="product" placeholder="e.g. Advance Regime">
+    </div>
+    <div>
+      <label>Date Added</label>
+      <input type="date" id="date">
+    </div>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label>INT / INF</label>
+      <select id="intInf"></select>
+    </div>
+    <div>
+      <label>Ad Type</label>
+      <select id="adType"></select>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label>Language</label>
+      <select id="language"></select>
+    </div>
+    <div>
+      <label>Default Ratio</label>
+      <select id="defaultRatio"></select>
+    </div>
+  </div>
+
+  <label>Person Full Name</label>
+  <input type="text" id="person" placeholder="e.g. Bhuvan Mehta  (leave blank for None)">
+
+  <div class="row2">
+    <div>
+      <label>Creator Type</label>
+      <select id="creatorType"></select>
+    </div>
+    <div>
+      <label>Onboarding Month</label>
+      <input type="text" id="onboardingMonth" placeholder="e.g. Feb'26">
+    </div>
+  </div>
+
+  <label>Instagram Profile</label>
+  <input type="text" id="instagram" placeholder="https://www.instagram.com/…">
+
+  <div class="row2">
+    <div>
+      <label>Live?</label>
+      <select id="live"></select>
+    </div>
+    <div>
+      <label>Can take live?</label>
+      <select id="canLive"></select>
+    </div>
+  </div>
+
+  <div class="row2">
+    <div>
+      <label>Raised By</label>
+      <input type="text" id="raisedBy" value="Pranav">
+    </div>
+    <div>
+      <label>Additional Info</label>
+      <input type="text" id="additionalInfo" placeholder="Optional">
+    </div>
+  </div>
+</div>
+
+<!-- Step 3: Per-cut fields -->
+<div class="section" id="cuts-section">
+  <h3>Step 3 — Per Cut (<span id="cut-count">0</span> files)</h3>
+  <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">
+    Set Funnel, Narrative and Format for each cut. Ratio defaults to the value above.
+  </p>
+  <div style="overflow-x:auto;">
+    <table class="cuts-table" id="cuts-table">
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Funnel</th>
+          <th>Narrative</th>
+          <th>Format</th>
+          <th>Ratio</th>
+        </tr>
+      </thead>
+      <tbody id="cuts-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>
+    Add to Sheet
+  </button>
+  <span id="submit-status" style="font-size:12px;color:#5f6368;"></span>
+</div>
+
+<div id="status"></div>
+
+<script>
+  let opts = {};
+  let files = [];
+
+  // ── Init ──────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", () => {
+    // Set today's date
+    const today = new Date();
+    const iso = today.toISOString().split("T")[0];
+    document.getElementById("date").value = iso;
+
+    // Load dropdowns and sheet context in parallel
+    google.script.run
+      .withSuccessHandler(o => { opts = o; populateDropdowns(); })
+      .withFailureHandler(err => showStatus("Failed to load options: " + err.message, false))
+      .getDropdownOptions();
+
+    google.script.run
+      .withSuccessHandler(ctx => {
+        document.getElementById("sheet-info").textContent =
+          `Sheet: "${ctx.sheetName}" · ${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
+      })
+      .withFailureHandler(() => {
+        document.getElementById("sheet-info").textContent = "Could not read sheet info.";
+      })
+      .getSheetContext();
+  });
+
+  function populateDropdowns() {
+    fill("intInf",      opts.intInf);
+    fill("adType",      opts.adType);
+    fill("language",    opts.language);
+    fill("creatorType", opts.creatorType);
+    fill("live",        opts.live);
+    fill("canLive",     opts.canLive);
+    fill("defaultRatio",opts.ratio);
+  }
+
+  function fill(id, values) {
+    const el = document.getElementById(id);
+    el.innerHTML = "";
+    values.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = v || "—";
+      el.appendChild(opt);
+    });
+  }
+
+  // ── Load folder ───────────────────────────────────────────
+  function loadFolder() {
+    const url = document.getElementById("folder-url").value.trim();
+    if (!url) { setFolderStatus("Paste a Drive folder link first.", false); return; }
+
+    setFolderStatus("Loading files…", null);
+    document.getElementById("submit-btn").disabled = true;
+
+    google.script.run
+      .withSuccessHandler(result => {
+        if (!result.ok) { setFolderStatus(result.msg, false); return; }
+        files = result.files;
+        setFolderStatus(`Found ${files.length} file${files.length !== 1 ? "s" : ""}.`, true);
+        buildCutsTable();
+        document.getElementById("cuts-section").style.display = "block";
+        document.getElementById("cut-count").textContent = files.length;
+        document.getElementById("submit-btn").disabled = false;
+      })
+      .withFailureHandler(err => setFolderStatus("Error: " + err.message, false))
+      .getFolderFiles(url);
+  }
+
+  function setFolderStatus(msg, ok) {
+    const el = document.getElementById("folder-status");
+    el.textContent = msg;
+    el.className = ok === true ? "status-ok" : ok === false ? "status-err" : "status-info";
+  }
+
+  // ── Build per-cut table ───────────────────────────────────
+  function buildCutsTable() {
+    const tbody = document.getElementById("cuts-body");
+    tbody.innerHTML = "";
+    const defaultRatio = document.getElementById("defaultRatio").value;
+
+    files.forEach((f, i) => {
+      const tr = document.createElement("tr");
+
+      // File name cell
+      const tdName = document.createElement("td");
+      tdName.className = "fname";
+      tdName.title = f.name;
+      tdName.textContent = f.name;
+      tr.appendChild(tdName);
+
+      // Funnel
+      tr.appendChild(makeSelectCell("funnel_" + i, opts.funnel));
+
+      // Narrative (with custom option)
+      tr.appendChild(makeSelectCell("narrative_" + i, opts.narrative, true));
+
+      // Ad Format (with custom option)
+      tr.appendChild(makeSelectCell("adFormat_" + i, opts.adFormat, true));
+
+      // Ratio
+      tr.appendChild(makeSelectCell("ratio_" + i, opts.ratio, false, defaultRatio));
+
+      tbody.appendChild(tr);
+    });
+  }
+
+  function makeSelectCell(id, values, allowCustom, defaultVal) {
+    const td = document.createElement("td");
+    const sel = document.createElement("select");
+    sel.id = id;
+
+    values.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = v || "—";
+      if (defaultVal && v === defaultVal) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    if (allowCustom) {
+      const customOpt = document.createElement("option");
+      customOpt.value = "__custom__"; customOpt.textContent = "Other…";
+      sel.appendChild(customOpt);
+
+      sel.addEventListener("change", () => {
+        if (sel.value === "__custom__") {
+          const val = prompt("Enter custom value:");
+          if (val) {
+            const newOpt = document.createElement("option");
+            newOpt.value = val; newOpt.textContent = val;
+            sel.insertBefore(newOpt, customOpt);
+            sel.value = val;
+          } else {
+            sel.value = values[0];
+          }
+        }
+      });
+    }
+
+    td.appendChild(sel);
+    return td;
+  }
+
+  // ── Submit ────────────────────────────────────────────────
+  function submitEntries() {
+    if (files.length === 0) return;
+
+    const shared = {
+      product:         document.getElementById("product").value.trim(),
+      date:            formatDateForSheet(document.getElementById("date").value),
+      intInf:          document.getElementById("intInf").value,
+      adType:          document.getElementById("adType").value,
+      language:        document.getElementById("language").value,
+      person:          document.getElementById("person").value.trim(),
+      creatorType:     document.getElementById("creatorType").value,
+      onboardingMonth: document.getElementById("onboardingMonth").value.trim(),
+      instagram:       document.getElementById("instagram").value.trim(),
+      live:            document.getElementById("live").value,
+      canLive:         document.getElementById("canLive").value,
+      raisedBy:        document.getElementById("raisedBy").value.trim(),
+      additionalInfo:  document.getElementById("additionalInfo").value.trim()
+    };
+
+    if (!shared.product) { showStatus("Please fill in Product Name.", false); return; }
+
+    const cuts = files.map((f, i) => ({
+      url:       f.url,
+      fileName:  f.name,
+      funnel:    document.getElementById("funnel_" + i).value,
+      narrative: document.getElementById("narrative_" + i).value,
+      adFormat:  document.getElementById("adFormat_" + i).value,
+      ratio:     document.getElementById("ratio_" + i).value
+    }));
+
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("submit-status").textContent = "Writing to sheet…";
+
+    google.script.run
+      .withSuccessHandler(result => {
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("submit-status").textContent = "";
+        showStatus(result.msg, result.ok);
+        if (result.ok) {
+          // Refresh sheet context
+          google.script.run
+            .withSuccessHandler(ctx => {
+              document.getElementById("sheet-info").textContent =
+                `Sheet: "${ctx.sheetName}" · ${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
+            })
+            .getSheetContext();
+        }
+      })
+      .withFailureHandler(err => {
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("submit-status").textContent = "";
+        showStatus("Error: " + err.message, false);
+      })
+      .addEntries({ shared, cuts });
+  }
+
+  function showStatus(msg, ok) {
+    const el = document.getElementById("status");
+    el.innerHTML = `<div class="${ok ? 'status-ok' : 'status-err'}" style="margin:8px 14px;">${msg}</div>`;
+  }
+
+  function formatDateForSheet(isoDate) {
+    // Convert YYYY-MM-DD to DD/MM/YYYY for the sheet
+    if (!isoDate) return "";
+    const [y, m, d] = isoDate.split("-");
+    return `${d}/${m}/${y}`;
+  }
+</script>
+</body>
+</html>
