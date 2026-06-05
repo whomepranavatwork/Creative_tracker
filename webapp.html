@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bias for Action!</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --blue:       #1a73e8;
+    --blue-dark:  #1557b0;
+    --blue-light: rgba(26,115,232,0.10);
+    --green:      #188038;
+    --green-bg:   #e6f4ea;
+    --red:        #c5221f;
+    --red-bg:     #fce8e6;
+    --text:       #202124;
+    --text-muted: #5f6368;
+    --border:     #dadce0;
+    --bg:         #f0f4f8;
+    --card:       #ffffff;
+    --radius:     12px;
+    --shadow:     0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+  }
+
+  body {
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 14px; color: var(--text); background: var(--bg);
+    min-height: 100vh; padding-bottom: 80px;
+  }
+
+  /* ── Header ────────────────────────────────────────────── */
+  .header {
+    background: var(--blue); color: #fff;
+    padding: 0 24px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 8px rgba(26,115,232,0.3);
+  }
+  .header-inner {
+    max-width: 720px; margin: 0 auto;
+    display: flex; align-items: center; gap: 16px;
+    height: 56px;
+  }
+  .header-title {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
+    white-space: nowrap;
+  }
+  .header-select {
+    flex: 1; max-width: 220px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 8px; color: #fff;
+    font-size: 13px; font-weight: 600;
+    padding: 7px 10px; cursor: pointer;
+    appearance: auto;
+  }
+  .header-select option { background: #1a73e8; }
+  .header-meta {
+    font-size: 12px; color: rgba(255,255,255,0.7);
+    white-space: nowrap; min-width: 120px;
+  }
+
+  /* ── Status banner ─────────────────────────────────────── */
+  #status { max-width: 720px; margin: 0 auto; padding: 12px 24px 0; }
+  .status-ok {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; background: var(--green-bg); color: var(--green);
+    border-radius: var(--radius); padding: 12px 16px;
+    animation: slideDown 0.25s ease;
+  }
+  .status-err {
+    background: var(--red-bg); color: var(--red);
+    border-radius: var(--radius); padding: 12px 16px;
+    animation: slideDown 0.25s ease;
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── Main content ──────────────────────────────────────── */
+  .main { max-width: 720px; margin: 0 auto; padding: 20px 24px; }
+
+  /* ── Cards ─────────────────────────────────────────────── */
+  .card {
+    background: var(--card); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 24px;
+    margin-bottom: 16px;
+  }
+  .card-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  }
+  .step-badge {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--blue); color: #fff;
+    font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-badge.done { background: var(--green); }
+  .card-title { font-size: 15px; font-weight: 600; }
+  .card-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+
+  /* ── Fields ─────────────────────────────────────────────── */
+  .field { margin-bottom: 14px; }
+  .field:last-child { margin-bottom: 0; }
+  .field > label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 5px;
+  }
+  .field input[type=text],
+  .field input[type=date],
+  .field select {
+    width: 100%; height: 40px; padding: 0 12px;
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 14px; color: var(--text); background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: auto; font-family: inherit;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-light);
+  }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+
+  @media (max-width: 500px) {
+    .grid2, .grid3 { grid-template-columns: 1fr; }
+    .main { padding: 14px 16px; }
+    .header-inner { gap: 10px; }
+    .header-meta { display: none; }
+  }
+
+  /* ── Folder row ─────────────────────────────────────────── */
+  .folder-row { display: flex; gap: 8px; }
+  .folder-row input { flex: 1; }
+  .folder-msg { margin-top: 8px; font-size: 13px; min-height: 18px; }
+  .msg-ok  { color: var(--green); }
+  .msg-err { color: var(--red); }
+  .msg-info { color: var(--text-muted); }
+
+  /* ── Buttons ─────────────────────────────────────────────── */
+  button { font-family: inherit; border: none; cursor: pointer; border-radius: 8px; }
+  .btn-primary {
+    height: 40px; padding: 0 20px;
+    background: var(--blue); color: #fff;
+    font-size: 14px; font-weight: 600;
+    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover { background: var(--blue-dark); box-shadow: 0 3px 10px rgba(26,115,232,0.35); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn-secondary {
+    height: 40px; padding: 0 16px;
+    background: #f1f3f4; color: var(--text);
+    font-size: 14px; white-space: nowrap;
+  }
+  .btn-secondary:hover { background: #e8eaed; }
+  .btn-secondary:disabled { color: #9aa0a6; cursor: not-allowed; }
+  .btn-link {
+    background: none; color: var(--blue); padding: 0;
+    font-size: 13px; font-weight: 500; text-decoration: underline;
+  }
+
+  /* ── Toggle ──────────────────────────────────────────────── */
+  .toggle-wrap {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+  }
+  .toggle-wrap input[type=checkbox] { display: none; }
+  .toggle-track {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: #dadce0; position: relative;
+    transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-track::after {
+    content: ""; position: absolute;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #fff; top: 2px; left: 2px;
+    transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-wrap input:checked + .toggle-track { background: var(--blue); }
+  .toggle-wrap input:checked + .toggle-track::after { transform: translateX(16px); }
+
+  /* ── Cut Details section ─────────────────────────────────── */
+  .step3-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .step3-left { display: flex; align-items: center; gap: 10px; }
+
+  /* Same-for-all panel */
+  .sfa-panel { }
+
+  /* File list */
+  .file-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .file-list {
+    border: 1.5px solid var(--border); border-radius: 8px;
+    max-height: 220px; overflow-y: auto; background: #fafafa;
+  }
+  .file-list-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-bottom: 1px solid #f0f0f0;
+    cursor: pointer; font-size: 13px; color: var(--text);
+  }
+  .file-list-item:last-child { border-bottom: none; }
+  .file-list-item:hover { background: #f1f3f4; }
+  .file-list-item input[type=checkbox] { width: auto; flex-shrink: 0; }
+  .file-list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-list-placeholder { padding: 12px 14px; font-size: 13px; color: #9aa0a6; }
+
+  /* Per-cut cards */
+  .cut-card {
+    border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 10px; background: #fafafa;
+  }
+  .cut-card:last-child { margin-bottom: 0; }
+  .cut-card-header {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  }
+  .cut-card-header input[type=checkbox] { width: auto; flex-shrink: 0; }
+  .cut-filename {
+    font-size: 13px; font-weight: 500; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .cut-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .cut-field > label {
+    display: block; font-size: 10px; font-weight: 600;
+    color: var(--text-muted); text-transform: uppercase;
+    letter-spacing: 0.4px; margin-bottom: 4px;
+  }
+  .cut-field select, .cut-field input[type=text] {
+    width: 100%; height: 36px; padding: 0 10px;
+    border: 1.5px solid var(--border); border-radius: 6px;
+    font-size: 13px; color: var(--text); background: #fff; font-family: inherit;
+  }
+  .cut-field select:focus, .cut-field input:focus {
+    outline: none; border-color: var(--blue);
+    box-shadow: 0 0 0 3px var(--blue-light);
+  }
+  .cut-field.full { grid-column: 1 / -1; }
+
+  /* ── Sticky submit bar ───────────────────────────────────── */
+  .submit-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+    background: #fff; border-top: 1px solid var(--border);
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    display: none;
+  }
+  .submit-bar-inner {
+    max-width: 720px; margin: 0 auto;
+    padding: 12px 24px; display: flex; align-items: center; gap: 12px;
+  }
+  #submit-status { font-size: 13px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-inner">
+    <div class="header-title">Bias for Action!</div>
+    <select class="header-select" id="tab-name" onchange="onTabChange()">
+      <option value="">Loading…</option>
+    </select>
+    <div class="header-meta" id="sheet-info"></div>
+  </div>
+</div>
+
+<!-- Status banner -->
+<div id="status"></div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Step 1: Drive Folder -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step-badge" id="badge-1">1</div>
+      <div class="card-title">Drive Folder</div>
+    </div>
+    <div class="field">
+      <label>Paste the Google Drive folder link</label>
+      <div class="folder-row">
+        <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
+        <button class="btn-secondary" id="load-btn" onclick="loadFolder()" disabled>Load</button>
+      </div>
+    </div>
+    <div class="folder-msg msg-info" id="folder-status"></div>
+  </div>
+
+  <!-- Step 2: Shared Fields -->
+  <div class="card" id="step2-card" style="display:none;">
+    <div class="card-header">
+      <div class="step-badge" id="badge-2">2</div>
+      <div class="card-title">Shared Fields</div>
+    </div>
+
+    <div class="field">
+      <label>Product Name</label>
+      <input type="text" id="product" list="product-list" placeholder="Search product…" autocomplete="off">
+      <datalist id="product-list"></datalist>
+    </div>
+
+    <div class="grid3">
+      <div class="field">
+        <label>Date Added</label>
+        <input type="date" id="date">
+      </div>
+      <div class="field">
+        <label>INT / INF</label>
+        <select id="intInf"></select>
+      </div>
+      <div class="field">
+        <label>Ad Type</label>
+        <select id="adType"></select>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="field">
+        <label>Language</label>
+        <select id="language"></select>
+      </div>
+      <div class="field">
+        <label>Can Take Live?</label>
+        <select id="canLive"></select>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Person Full Name</label>
+      <input type="text" id="person" list="person-list" placeholder="Search name… (blank = None)" autocomplete="off" oninput="onPersonInput()">
+      <datalist id="person-list"></datalist>
+    </div>
+
+    <div class="field">
+      <label>Instagram Profile</label>
+      <input type="text" id="instagram" placeholder="Auto-fills on person select">
+    </div>
+
+    <div class="grid3">
+      <div class="field">
+        <label>Creator Type</label>
+        <select id="creatorType"></select>
+      </div>
+      <div class="field">
+        <label>Onboarding Month</label>
+        <select id="onboardingMonth"></select>
+      </div>
+      <div class="field">
+        <label>Raised By</label>
+        <input type="text" id="raisedBy" value="Pranav">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Additional Info</label>
+      <input type="text" id="additionalInfo" placeholder="Optional">
+    </div>
+  </div>
+
+  <!-- Step 3: Cut Details -->
+  <div class="card" id="cuts-section" style="display:none;">
+    <div class="step3-header">
+      <div class="step3-left">
+        <div class="step-badge" id="badge-3">3</div>
+        <div class="card-title">Cut Details</div>
+        <div class="card-subtitle" id="cut-count-label"></div>
+      </div>
+      <label class="toggle-wrap">
+        <input type="checkbox" id="same-for-all" checked onchange="onSameForAllToggle()">
+        <span class="toggle-track"></span>
+        <span>Same for all</span>
+      </label>
+    </div>
+
+    <!-- Same for all -->
+    <div id="all-same-panel">
+      <div class="grid2">
+        <div class="field">
+          <label>Funnel</label>
+          <select id="all_funnel"></select>
+        </div>
+        <div class="field">
+          <label>Ratio</label>
+          <div id="all_ratio_wrap"></div>
+        </div>
+      </div>
+      <div class="grid2">
+        <div class="field">
+          <label>Narrative</label>
+          <div id="all_narrative_wrap"></div>
+        </div>
+        <div class="field">
+          <label>Ad Format</label>
+          <div id="all_adFormat_wrap"></div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:6px;">
+        <div class="file-label">Choose files to be added</div>
+        <div class="file-list" id="sfa-file-list">
+          <div class="file-list-placeholder">Load a folder first.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per cut -->
+    <div id="per-cut-panel" style="display:none;">
+      <div id="cuts-body"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- Sticky submit bar -->
+<div class="submit-bar" id="submit-bar">
+  <div class="submit-bar-inner">
+    <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>
+      Add to Sheet
+    </button>
+    <span id="submit-status"></span>
+  </div>
+</div>
+
+<script>
+  let opts      = {};
+  let files     = [];
+  let sheetCtx  = {};
+  let personMap = {};
+
+  const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
+
+  const TAB_PRODUCT_MAP = {
+    "Biotin":       "Biotin30",
+    "S1":           "Stage 1",
+    "S2":           "Stage2",
+    "S3":           "Stage3",
+    "Form Testing": "Selfasst",
+    "Cetosomal":    "Advance Regime"
+  };
+
+  // ── Init ──────────────────────────────────────────────────
+  document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("date").value = new Date().toISOString().split("T")[0];
+
+    google.script.run
+      .withSuccessHandler(data => {
+        opts = data.dropdownOptions;
+        personMap = data.personMap || {};
+        populateDropdowns();
+        restoreFromStorage();
+
+        const sel = document.getElementById("tab-name");
+        sel.innerHTML = "";
+        data.sheetNames.forEach(name => {
+          const opt = document.createElement("option");
+          opt.value = name; opt.textContent = name;
+          sel.appendChild(opt);
+        });
+        document.getElementById("load-btn").disabled = false;
+        onTabChange();
+      })
+      .withFailureHandler(err => showStatus("Failed to load: " + err.message, false))
+      .init();
+  });
+
+  function onTabChange() {
+    if (files.length > 0) resetBatch();
+    const tabName = document.getElementById("tab-name").value;
+    const mapped  = TAB_PRODUCT_MAP[tabName];
+    if (mapped) document.getElementById("product").value = mapped;
+
+    document.getElementById("sheet-info").textContent = "Loading…";
+    google.script.run
+      .withSuccessHandler(ctx => {
+        sheetCtx = ctx;
+        document.getElementById("sheet-info").textContent =
+          `${ctx.totalRows} rows · Next: ${ctx.nextSno}`;
+      })
+      .withFailureHandler(() => {
+        document.getElementById("sheet-info").textContent = "⚠ No headers found";
+      })
+      .getSheetContext(tabName);
+  }
+
+  function populateDropdowns() {
+    fill("intInf",          opts.intInf);
+    fill("adType",          opts.adType);
+    fill("language",        opts.language);
+    fill("creatorType",     opts.creatorType);
+    fill("onboardingMonth", opts.onboardingMonth);
+    fill("canLive",         opts.canLive);
+    fill("all_funnel",      opts.funnel);
+
+    fillDatalist("product-list", opts.product || []);
+    fillDatalist("person-list",  opts.person  || []);
+
+    buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
+    buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
+    buildSelectInDiv("all_adFormat_wrap",  "all_adFormat",  opts.adFormat,  true);
+  }
+
+  function fill(id, values) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = "";
+    (values || []).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = v || "—";
+      el.appendChild(opt);
+    });
+  }
+
+  function fillDatalist(id, values) {
+    const dl = document.getElementById(id);
+    if (!dl) return;
+    dl.innerHTML = "";
+    (values || []).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; dl.appendChild(opt);
+    });
+  }
+
+  function buildSelectInDiv(wrapId, selId, values, allowCustom, defaultVal) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    wrap.appendChild(makeSelectField(selId, values, allowCustom, defaultVal));
+  }
+
+  function onPersonInput() {
+    const name = document.getElementById("person").value.trim();
+    const ig   = personMap[name];
+    if (ig) document.getElementById("instagram").value = ig;
+  }
+
+  // ── Load folder ───────────────────────────────────────────
+  function loadFolder() {
+    const url = document.getElementById("folder-url").value.trim();
+    if (!url) { setFolderStatus("Paste a Drive folder link first.", false); return; }
+
+    setFolderStatus("Loading files…", null);
+    document.getElementById("submit-btn").disabled = true;
+
+    google.script.run
+      .withSuccessHandler(result => {
+        if (!result.ok) { setFolderStatus(result.msg, false); return; }
+        files = result.files;
+        setFolderStatus(`${files.length} file${files.length !== 1 ? "s" : ""} found`, true);
+        document.getElementById("cut-count-label").textContent = files.length + " files";
+        document.getElementById("step2-card").style.display  = "block";
+        document.getElementById("cuts-section").style.display = "block";
+        document.getElementById("submit-bar").style.display  = "block";
+        document.getElementById("badge-1").classList.add("done");
+        buildCutsTable();
+        buildSfaFileList();
+        document.getElementById("submit-btn").disabled = false;
+      })
+      .withFailureHandler(err => setFolderStatus("Error: " + err.message, false))
+      .getFolderFiles(url);
+  }
+
+  function setFolderStatus(msg, ok) {
+    const el = document.getElementById("folder-status");
+    el.textContent = msg;
+    el.className = "folder-msg " + (ok === true ? "msg-ok" : ok === false ? "msg-err" : "msg-info");
+  }
+
+  function onSameForAllToggle() {
+    const on = document.getElementById("same-for-all").checked;
+    document.getElementById("all-same-panel").style.display  = on ? "" : "none";
+    document.getElementById("per-cut-panel").style.display   = on ? "none" : "";
+  }
+
+  // ── Build per-cut cards ───────────────────────────────────
+  function buildCutsTable() {
+    const container    = document.getElementById("cuts-body");
+    container.innerHTML = "";
+    const defaultRatio = document.getElementById("all_ratio")?.value || (opts.ratio || [])[0];
+
+    files.forEach((f, i) => {
+      const card = document.createElement("div");
+      card.className = "cut-card";
+
+      const header = document.createElement("div");
+      header.className = "cut-card-header";
+      const chk = document.createElement("input");
+      chk.type = "checkbox"; chk.id = "pct_include_" + i; chk.checked = true;
+      const fname = document.createElement("div");
+      fname.className = "cut-filename"; fname.title = f.name; fname.textContent = f.name;
+      header.appendChild(chk); header.appendChild(fname);
+      card.appendChild(header);
+
+      const grid = document.createElement("div");
+      grid.className = "cut-fields";
+      grid.appendChild(makeCutField("funnel_"    + i, "Funnel",    opts.funnel));
+      grid.appendChild(makeCutField("ratio_"     + i, "Ratio",     opts.ratio,     false, defaultRatio));
+      grid.appendChild(makeCutField("narrative_" + i, "Narrative", opts.narrative, true,  null, true));
+      grid.appendChild(makeCutField("adFormat_"  + i, "Format",    opts.adFormat,  true,  null, true));
+      card.appendChild(grid);
+
+      container.appendChild(card);
+    });
+  }
+
+  function makeCutField(id, labelText, values, allowCustom, defaultVal, fullWidth) {
+    const wrap = document.createElement("div");
+    wrap.className = "cut-field" + (fullWidth ? " full" : "");
+    const lbl = document.createElement("label");
+    lbl.textContent = labelText;
+    wrap.appendChild(lbl);
+    wrap.appendChild(makeSelectField(id, values, allowCustom, defaultVal));
+    return wrap;
+  }
+
+  function buildSfaFileList() {
+    const list = document.getElementById("sfa-file-list");
+    list.innerHTML = "";
+    files.forEach((f, i) => {
+      const item = document.createElement("label");
+      item.className = "file-list-item";
+      const chk  = document.createElement("input");
+      chk.type = "checkbox"; chk.id = "sfa_include_" + i; chk.checked = true;
+      const span = document.createElement("span");
+      span.textContent = f.name; span.title = f.name;
+      item.appendChild(chk); item.appendChild(span);
+      list.appendChild(item);
+    });
+  }
+
+  function makeSelectField(id, values, allowCustom, defaultVal) {
+    const wrap = document.createElement("div");
+    const sel  = document.createElement("select");
+    sel.id = id;
+    (values || []).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = v || "—";
+      if (defaultVal && v === defaultVal) opt.selected = true;
+      sel.appendChild(opt);
+    });
+
+    const inp = document.createElement("input");
+    inp.type = "text"; inp.id = id + "_custom";
+    inp.placeholder = "Type and press Enter";
+    inp.style.cssText = "display:none;width:100%;height:36px;padding:0 10px;border:1.5px solid #dadce0;border-radius:6px;font-size:13px;font-family:inherit;";
+
+    if (allowCustom) {
+      const customOpt = document.createElement("option");
+      customOpt.value = "__custom__"; customOpt.textContent = "Other…";
+      sel.appendChild(customOpt);
+
+      sel.addEventListener("change", () => {
+        if (sel.value === "__custom__") {
+          sel.style.display = "none"; inp.style.display = ""; inp.focus();
+        }
+      });
+
+      const confirm = () => {
+        const val = inp.value.trim();
+        if (val) {
+          const newOpt = document.createElement("option");
+          newOpt.value = val; newOpt.textContent = val;
+          sel.insertBefore(newOpt, customOpt);
+          sel.value = val;
+        } else { sel.value = (values || [])[0]; }
+        inp.style.display = "none"; sel.style.display = "";
+      };
+      inp.addEventListener("keydown", e => { if (e.key === "Enter") confirm(); });
+      inp.addEventListener("blur", confirm);
+    }
+
+    wrap.appendChild(sel); wrap.appendChild(inp);
+    return wrap;
+  }
+
+  function getCutFieldValue(id) {
+    const inp = document.getElementById(id + "_custom");
+    if (inp && inp.style.display !== "none") return inp.value.trim();
+    const sel = document.getElementById(id);
+    return sel ? sel.value : "";
+  }
+
+  // ── LocalStorage ──────────────────────────────────────────
+  function saveToStorage() {
+    LS_KEYS.forEach(key => {
+      const el = document.getElementById(key);
+      if (el) localStorage.setItem("bfa_" + key, el.value);
+    });
+  }
+
+  function restoreFromStorage() {
+    LS_KEYS.forEach(key => {
+      const val = localStorage.getItem("bfa_" + key);
+      if (val === null) return;
+      const el = document.getElementById(key);
+      if (el) el.value = val;
+    });
+  }
+
+  // ── Reset ─────────────────────────────────────────────────
+  function resetBatch() {
+    files = [];
+    document.getElementById("folder-url").value          = "";
+    document.getElementById("folder-status").textContent = "";
+    document.getElementById("folder-status").className   = "folder-msg msg-info";
+    document.getElementById("step2-card").style.display  = "none";
+    document.getElementById("cuts-section").style.display = "none";
+    document.getElementById("submit-bar").style.display  = "none";
+    document.getElementById("cuts-body").innerHTML        = "";
+    document.getElementById("sfa-file-list").innerHTML   = '<div class="file-list-placeholder">Load a folder first.</div>';
+    document.getElementById("cut-count-label").textContent = "";
+    document.getElementById("submit-btn").disabled        = true;
+    document.getElementById("status").innerHTML           = "";
+    document.getElementById("badge-1").classList.remove("done");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  // ── Submit ────────────────────────────────────────────────
+  function submitEntries() {
+    if (files.length === 0) { showStatus("Load a Drive folder first.", false); return; }
+
+    const shared = {
+      product:         document.getElementById("product").value.trim(),
+      date:            formatDateForSheet(document.getElementById("date").value),
+      intInf:          document.getElementById("intInf").value,
+      adType:          document.getElementById("adType").value,
+      language:        document.getElementById("language").value,
+      person:          document.getElementById("person").value.trim(),
+      creatorType:     document.getElementById("creatorType").value,
+      onboardingMonth: document.getElementById("onboardingMonth").value,
+      instagram:       document.getElementById("instagram").value.trim(),
+      canLive:         document.getElementById("canLive").value,
+      raisedBy:        document.getElementById("raisedBy").value.trim(),
+      additionalInfo:  document.getElementById("additionalInfo").value.trim()
+    };
+
+    if (!shared.product) { showStatus("Please fill in Product Name.", false); return; }
+
+    const sameForAll = document.getElementById("same-for-all").checked;
+    const cuts = [];
+    files.forEach((f, i) => {
+      const included = sameForAll
+        ? (document.getElementById("sfa_include_" + i)?.checked !== false)
+        : (document.getElementById("pct_include_" + i)?.checked !== false);
+      if (!included) return;
+      cuts.push({
+        url:       f.url,
+        fileName:  f.name,
+        funnel:    sameForAll ? document.getElementById("all_funnel").value : document.getElementById("funnel_" + i).value,
+        narrative: sameForAll ? getCutFieldValue("all_narrative")           : getCutFieldValue("narrative_" + i),
+        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")            : getCutFieldValue("adFormat_" + i),
+        ratio:     sameForAll ? getCutFieldValue("all_ratio")               : getCutFieldValue("ratio_" + i)
+      });
+    });
+
+    if (cuts.length === 0) { showStatus("No files selected.", false); return; }
+
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("submit-status").textContent = "Writing to sheet…";
+
+    google.script.run
+      .withSuccessHandler(result => {
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("submit-status").textContent = "";
+        if (result.ok) {
+          saveToStorage();
+          sheetCtx.nextSno     = result.nextSno;
+          sheetCtx.lastDataRow = result.lastDataRow;
+          sheetCtx.totalRows   = result.totalRows;
+          document.getElementById("sheet-info").textContent =
+            `${result.totalRows} rows · Next: ${result.nextSno}`;
+          document.getElementById("badge-2").classList.add("done");
+          document.getElementById("badge-3").classList.add("done");
+          showStatusWithReset(result.msg);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+          showStatus(result.msg, false);
+        }
+      })
+      .withFailureHandler(err => {
+        document.getElementById("submit-btn").disabled = false;
+        document.getElementById("submit-status").textContent = "";
+        showStatus("Error: " + err.message, false);
+      })
+      .addEntries({
+        tabName:          document.getElementById("tab-name").value,
+        colIndex:         sheetCtx.colIndex,
+        headerRow:        sheetCtx.headerRow,
+        lastDataRow:      sheetCtx.lastDataRow,
+        nextSno:          sheetCtx.nextSno,
+        totalRows:        sheetCtx.totalRows,
+        adNameFormula:    sheetCtx.adNameFormula,
+        adNameFormulaRow: sheetCtx.adNameFormulaRow,
+        shared,
+        cuts
+      });
+  }
+
+  function showStatus(msg, ok) {
+    const el  = document.getElementById("status");
+    const div = document.createElement("div");
+    div.className = ok ? "status-ok" : "status-err";
+    div.textContent = msg;
+    el.innerHTML = ""; el.appendChild(div);
+  }
+
+  function showStatusWithReset(msg) {
+    const el  = document.getElementById("status");
+    const div = document.createElement("div");
+    div.className = "status-ok";
+    const txt = document.createElement("span");
+    txt.textContent = msg;
+    const btn = document.createElement("button");
+    btn.className = "btn-link"; btn.textContent = "New batch"; btn.onclick = resetBatch;
+    div.appendChild(txt); div.appendChild(btn);
+    el.innerHTML = ""; el.appendChild(div);
+  }
+
+  function formatDateForSheet(isoDate) {
+    if (!isoDate) return "";
+    const [y, m, d] = isoDate.split("-");
+    return `${d}/${m}/${y}`;
+  }
+</script>
+</body>
+</html>

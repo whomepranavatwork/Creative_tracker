@@ -2,8 +2,21 @@
 // Creative Tracker — Bulk Entry Automation
 // ============================================================
 
+const SPREADSHEET_ID      = "1EknvJXuzSZTNKnT3Xr3jsAbPct9yEgCzLbbehwZCJ2E";
 const FORCE_SHEET_NAME    = "";  // leave blank — user picks tab in sidebar
 const HEADER_SEARCH_LIMIT = 20;
+
+function getSpreadsheet() {
+  return SPREADSHEET_ID
+    ? SpreadsheetApp.openById(SPREADSHEET_ID)
+    : SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile("webapp")
+    .setTitle("Bias for Action!")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
 
 const HEADER_MAP = {
   sno:             "S.No.",
@@ -50,7 +63,7 @@ function showSidebar() {
 // ── Single init call: replaces getSheetNames + getDropdownOptions ─
 // Returns everything the sidebar needs on load in one round trip.
 function init() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const ss = getSpreadsheet();
   const sheetNames = ss.getSheets().slice(0, 7).map(s => s.getName());
 
   // Read Buckets tab for dynamic dropdown values
@@ -224,7 +237,7 @@ function addEntries(payload) {
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const ss     = SpreadsheetApp.getActiveSpreadsheet();
+    const ss     = getSpreadsheet();
     const name   = tabName || FORCE_SHEET_NAME;
     const sheet  = name ? ss.getSheetByName(name) : ss.getActiveSheet();
     if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
@@ -312,7 +325,7 @@ function addEntries(payload) {
 
 // ── Sheet resolution (only used by getSheetContext) ───────────
 function resolveSheet(tabName) {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
+  const ss    = getSpreadsheet();
   const name  = tabName || FORCE_SHEET_NAME;
   const sheet = name ? ss.getSheetByName(name) : ss.getActiveSheet();
   if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
