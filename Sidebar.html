@@ -134,24 +134,28 @@
     display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
   }
 
-  /* ── Cuts table ───────────────────────────────────────── */
+  /* ── Cut cards ────────────────────────────────────────── */
   #cuts-section { display: none; }
-  .cuts-table { width: 100%; border-collapse: collapse; }
-  .cuts-table th {
-    background: #f8f9fa; font-size: 10px; font-weight: 600;
-    color: #5f6368; padding: 5px 4px; text-align: left;
-    border-bottom: 2px solid #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase;
+  .cut-card {
+    border: 1px solid #e8eaed; border-radius: 8px;
+    padding: 10px 12px; margin-bottom: 8px; background: #fafafa;
   }
-  .cuts-table td { padding: 3px 3px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
-  .cuts-table tr:last-child td { border-bottom: none; }
-  .cuts-table td.fname {
-    font-size: 11px; color: #5f6368; width: 90px; max-width: 90px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  .cut-card:last-child { margin-bottom: 0; }
+  .cut-card-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
   }
-  .cuts-table td.chk { width: 22px; text-align: center; }
-  .cuts-table td.chk input { width: auto; }
-  .cuts-table select { padding: 3px 2px; font-size: 11px; border: 1px solid #dadce0; border-radius: 4px; width: 100%; }
-  .cuts-table td:last-child { width: 52px; }
+  .cut-card-header input[type=checkbox] { width: auto; flex-shrink: 0; }
+  .cut-filename {
+    font-size: 12px; font-weight: 500; color: #202124;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .cut-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .cut-field label { font-size: 10px; font-weight: 500; color: #5f6368; letter-spacing: 0.2px; display: block; margin-bottom: 2px; }
+  .cut-field select, .cut-field input[type=text] {
+    width: 100%; font-size: 12px; padding: 5px 6px;
+    border: 1px solid #dadce0; border-radius: 5px; background: #fff;
+  }
+  .cut-field.full { grid-column: 1 / -1; }
 
   /* ── File list ────────────────────────────────────────── */
   .file-list {
@@ -334,23 +338,9 @@
     </div>
   </div>
 
-  <!-- Per-cut table -->
+  <!-- Per-cut cards -->
   <div id="per-cut-panel" style="display:none;">
-    <div style="overflow-x:auto;">
-      <table class="cuts-table">
-        <thead>
-          <tr>
-            <th class="chk">✓</th>
-            <th style="width:90px;">File</th>
-            <th>Funnel</th>
-            <th>Narrative</th>
-            <th>Format</th>
-            <th>Ratio</th>
-          </tr>
-        </thead>
-        <tbody id="cuts-body"></tbody>
-      </table>
-    </div>
+    <div id="cuts-body"></div>
   </div>
 </div>
 
@@ -504,33 +494,48 @@
     document.getElementById("per-cut-panel").style.display  = on ? "none" : "";
   }
 
-  // ── Build per-cut table ───────────────────────────────────
+  // ── Build per-cut cards ───────────────────────────────────
   function buildCutsTable() {
-    const tbody = document.getElementById("cuts-body");
-    tbody.innerHTML = "";
+    const container = document.getElementById("cuts-body");
+    container.innerHTML = "";
     const defaultRatio = document.getElementById("all_ratio")?.value || opts.ratio[0];
 
     files.forEach((f, i) => {
-      const tr = document.createElement("tr");
+      const card = document.createElement("div");
+      card.className = "cut-card";
 
-      const tdChk = document.createElement("td");
-      tdChk.className = "chk";
+      // Header: checkbox + filename
+      const header = document.createElement("div");
+      header.className = "cut-card-header";
       const chk = document.createElement("input");
       chk.type = "checkbox"; chk.id = "pct_include_" + i; chk.checked = true;
-      tdChk.appendChild(chk);
-      tr.appendChild(tdChk);
+      const fname = document.createElement("div");
+      fname.className = "cut-filename"; fname.title = f.name; fname.textContent = f.name;
+      header.appendChild(chk); header.appendChild(fname);
+      card.appendChild(header);
 
-      const tdName = document.createElement("td");
-      tdName.className = "fname"; tdName.title = f.name; tdName.textContent = f.name;
-      tr.appendChild(tdName);
+      // Fields grid
+      const grid = document.createElement("div");
+      grid.className = "cut-fields";
+      grid.appendChild(makeCutField("funnel_"    + i, "Funnel",    opts.funnel));
+      grid.appendChild(makeCutField("ratio_"     + i, "Ratio",     opts.ratio, false, defaultRatio));
+      grid.appendChild(makeCutField("narrative_" + i, "Narrative", opts.narrative, true, null, true));
+      grid.appendChild(makeCutField("adFormat_"  + i, "Format",    opts.adFormat,  true, null, true));
+      card.appendChild(grid);
 
-      tr.appendChild(makeSelectCell("funnel_"    + i, opts.funnel));
-      tr.appendChild(makeSelectCell("narrative_" + i, opts.narrative, true));
-      tr.appendChild(makeSelectCell("adFormat_"  + i, opts.adFormat,  true));
-      tr.appendChild(makeSelectCell("ratio_"     + i, opts.ratio, false, defaultRatio));
-
-      tbody.appendChild(tr);
+      container.appendChild(card);
     });
+  }
+
+  function makeCutField(id, labelText, values, allowCustom, defaultVal, fullWidth) {
+    const wrap = document.createElement("div");
+    wrap.className = "cut-field" + (fullWidth ? " full" : "");
+    const lbl = document.createElement("label");
+    lbl.textContent = labelText;
+    wrap.appendChild(lbl);
+    const field = makeSelectField(id, values, allowCustom, defaultVal);
+    wrap.appendChild(field);
+    return wrap;
   }
 
   function buildSfaFileList() {
@@ -592,13 +597,7 @@
     return wrap;
   }
 
-  function makeSelectCell(id, values, allowCustom, defaultVal) {
-    const td = document.createElement("td");
-    td.appendChild(makeSelectField(id, values, allowCustom, defaultVal));
-    return td;
-  }
-
-  function getCutFieldValue(id) {
+function getCutFieldValue(id) {
     const inp = document.getElementById(id + "_custom");
     if (inp && inp.style.display !== "none") return inp.value.trim();
     const sel = document.getElementById(id);
