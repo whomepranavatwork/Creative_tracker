@@ -202,6 +202,8 @@
   <div class="tab-meta" id="sheet-info"></div>
 </div>
 
+<div id="status" style="padding:10px 10px 0;"></div>
+
 <!-- Step 1: Folder -->
 <div class="card">
   <div class="step-header">
@@ -350,7 +352,6 @@
   <span id="submit-status" style="font-size:12px;color:#5f6368;"></span>
 </div>
 
-<div id="status" style="padding:0 10px 10px;"></div>
 
 <script>
   let opts = {};
@@ -691,6 +692,7 @@ function getCutFieldValue(id) {
           document.getElementById("sheet-info").textContent =
             `${result.totalRows} rows · Next: ${result.nextSno}`;
           showStatusWithReset(result.msg);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
           showStatus(result.msg, false);
         }

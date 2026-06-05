@@ -298,7 +298,7 @@ function addEntries(payload) {
 
     return {
       ok:  true,
-      msg: `Added ${rows.length} entr${rows.length === 1 ? "y" : "ies"} (S.No. ${String(nextSno).padStart(5,"0")} – ${String(nextSno + rows.length - 1).padStart(5,"0")}) on sheet "${sheet.getName()}", rows ${firstNewRow}–${firstNewRow + rows.length - 1}.`,
+      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
       // Return updated values so sidebar can refresh without another server call
       nextSno:     String(nextSno + rows.length).padStart(5, "0"),
       lastDataRow: firstNewRow + rows.length - 1,
