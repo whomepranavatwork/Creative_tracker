@@ -438,12 +438,13 @@
         showStatus("Error: " + err.message, false);
       })
       .addEntries({
-        tabName:     document.getElementById("tab-name").value,
-        colIndex:    sheetCtx.colIndex,
-        headerRow:   sheetCtx.headerRow,
-        lastDataRow: sheetCtx.lastDataRow,
-        nextSno:     sheetCtx.nextSno,
-        totalRows:   sheetCtx.totalRows,
+        tabName:       document.getElementById("tab-name").value,
+        colIndex:      sheetCtx.colIndex,
+        headerRow:     sheetCtx.headerRow,
+        lastDataRow:   sheetCtx.lastDataRow,
+        nextSno:       sheetCtx.nextSno,
+        totalRows:     sheetCtx.totalRows,
+        adNameFormula: sheetCtx.adNameFormula,
         shared,
         cuts
       });

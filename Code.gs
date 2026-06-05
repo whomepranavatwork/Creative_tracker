@@ -82,46 +82,55 @@ function getSheetContext(tabName) {
   const { sheet, colIndex, headerRow } = resolveSheet(tabName);
   const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
 
-  // Single batched read: get S.No. column and Date Added column together
-  const lastRow   = sheet.getLastRow();
-  const dataRows  = lastRow - headerRow;
+  const lastRow  = sheet.getLastRow();
+  const dataRows = lastRow - headerRow;
   let nextSno     = 1;
   let lastDataRow = headerRow;
+  let adNameFormula = "";
 
   if (dataRows > 0) {
-    // Read S.No. and Date Added columns in one getValues call
-    const snoCol  = colIndex.sno;
-    const dateCol = colIndex.date ?? colIndex.drive916 ?? colIndex.drive45;
-    const minCol  = Math.min(snoCol, dateCol) + 1;           // 1-indexed
-    const maxCol  = Math.max(snoCol, dateCol) + 1;
-    const width   = maxCol - minCol + 1;
+    // Use Funnel Type to find lastDataRow — pre-filled rows never have it.
+    // Date Added is unreliable because a previous buggy run may have written dates there.
+    // Read S.No. and Funnel Type columns together in one API call.
+    const snoCol    = colIndex.sno;
+    const funnelCol = colIndex.funnel;
+    const minCol    = Math.min(snoCol, funnelCol) + 1;
+    const maxCol    = Math.max(snoCol, funnelCol) + 1;
+    const width     = maxCol - minCol + 1;
 
     const data = sheet
       .getRange(headerRow + 1, minCol, dataRows, width)
       .getValues();
 
-    const snoOffset  = snoCol  + 1 - minCol;
-    const dateOffset = dateCol + 1 - minCol;
+    const snoOffset    = snoCol    + 1 - minCol;
+    const funnelOffset = funnelCol + 1 - minCol;
 
-    let maxSno = 0;
+    // Walk from bottom — first row with a Funnel value is the last real entry
     for (let i = data.length - 1; i >= 0; i--) {
-      const n = parseInt(data[i][snoOffset], 10);
-      if (!isNaN(n) && n > maxSno) maxSno = n;
-      if (lastDataRow === headerRow && data[i][dateOffset] !== "") {
+      if (data[i][funnelOffset] !== "") {
         lastDataRow = headerRow + 1 + i;
+        // nextSno comes from THIS row's S.No., not the max across all rows
+        const n = parseInt(data[i][snoOffset], 10);
+        nextSno = isNaN(n) ? 1 : n + 1;
+        break;
       }
     }
-    nextSno = maxSno + 1;
+
+    // Read the Ad Name formula from the last real data row so we can replicate it
+    if (colIndex.adName != null && lastDataRow > headerRow) {
+      adNameFormula = sheet.getRange(lastDataRow, colIndex.adName + 1).getFormula();
+    }
   }
 
   return {
-    sheetName:   sheet.getName(),
-    nextSno:     String(nextSno).padStart(5, "0"),
+    sheetName:    sheet.getName(),
+    nextSno:      String(nextSno).padStart(5, "0"),
     today,
-    totalRows:   dataRows,
-    lastDataRow,           // cached — passed back with addEntries
-    colIndex,              // cached — passed back with addEntries
-    headerRow              // cached — passed back with addEntries
+    totalRows:    dataRows,
+    lastDataRow,
+    adNameFormula,
+    colIndex,
+    headerRow
   };
 }
 
@@ -158,13 +167,14 @@ function getFolderFiles(folderUrl) {
 // so no sheet re-scanning is needed.
 function addEntries(payload) {
   try {
-    const tabName    = payload.tabName;
-    const shared     = payload.shared;
-    const cuts       = payload.cuts;
-    const colIndex   = payload.colIndex;
-    const headerRow  = payload.headerRow;
-    const nextSno    = parseInt(payload.nextSno, 10);
-    const firstNewRow = payload.lastDataRow + 1;
+    const tabName      = payload.tabName;
+    const shared       = payload.shared;
+    const cuts         = payload.cuts;
+    const colIndex     = payload.colIndex;
+    const headerRow    = payload.headerRow;
+    const nextSno      = parseInt(payload.nextSno, 10);
+    const firstNewRow  = payload.lastDataRow + 1;
+    const adNameFormula = payload.adNameFormula || "";
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
@@ -215,16 +225,27 @@ function addEntries(payload) {
     // Hyperlink Drive link columns
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
-    // Copy Ad Name / YT Ad Name formulas from the row above
-    const formulaSourceRow = firstNewRow - 1;
-    if (formulaSourceRow > headerRow) {
-      [colIndex.adName, colIndex.ytAdName].forEach(col => {
-        if (col == null) return;
-        const srcCell = sheet.getRange(formulaSourceRow, col + 1);
-        if (!srcCell.getFormula()) return;
-        sheet.getRange(firstNewRow, col + 1, rows.length, 1)
+    // Write Ad Name formula to every new row.
+    // Use the cached formula from the last real data row (passed in payload).
+    // Fall back to copying from the row above if no cached formula.
+    if (colIndex.adName != null) {
+      const formulaSourceRow = payload.lastDataRow;
+      const srcCell = sheet.getRange(formulaSourceRow, colIndex.adName + 1);
+      const formula = adNameFormula || srcCell.getFormula();
+      if (formula) {
+        sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1)
           .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-      });
+      }
+    }
+
+    // Same for YT Ad Name
+    if (colIndex.ytAdName != null) {
+      const formulaSourceRow = payload.lastDataRow;
+      const srcCell = sheet.getRange(formulaSourceRow, colIndex.ytAdName + 1);
+      if (srcCell.getFormula()) {
+        sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1)
+          .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      }
     }
 
     return {
