@@ -4,203 +4,344 @@
 <meta charset="UTF-8">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; font-size: 13px; color: #202124; background: #fff; }
 
-  .section { padding: 12px 14px; border-bottom: 1px solid #e0e0e0; }
-  .section:last-child { border-bottom: none; }
-
-  h3 { font-size: 13px; font-weight: 600; color: #1a73e8; margin-bottom: 10px; }
-
-  label { display: block; font-size: 12px; color: #5f6368; margin-bottom: 2px; margin-top: 8px; }
-  label:first-of-type { margin-top: 0; }
-
-  input[type=text], input[type=date], select, textarea {
-    width: 100%; padding: 6px 8px; border: 1px solid #dadce0;
-    border-radius: 4px; font-size: 13px; color: #202124; background: #fff;
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    font-size: 13px; color: #202124; background: #f0f2f5;
+    display: flex; flex-direction: column; min-height: 100vh;
   }
-  input:focus, select:focus, textarea:focus { outline: none; border-color: #1a73e8; }
-  textarea { resize: vertical; min-height: 52px; }
 
-  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* ── Tab bar ──────────────────────────────────────────── */
+  .tab-bar {
+    background: #1a73e8; padding: 10px 14px 8px;
+    position: sticky; top: 0; z-index: 20;
+  }
+  .tab-bar select {
+    width: 100%; background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+    color: #fff; font-size: 13px; font-weight: 600;
+    padding: 6px 8px; cursor: pointer;
+  }
+  .tab-bar select option { background: #1a73e8; color: #fff; }
+  .tab-meta {
+    margin-top: 5px; font-size: 11px;
+    color: rgba(255,255,255,0.75); min-height: 14px;
+  }
 
+  /* ── Cards ────────────────────────────────────────────── */
+  .card {
+    background: #fff; margin: 10px 10px 0;
+    border-radius: 10px; padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .card:last-of-type { margin-bottom: 10px; }
+
+  /* ── Step headers ─────────────────────────────────────── */
+  .step-header {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+  }
+  .step-badge {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #1a73e8; color: #fff;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .step-title { font-size: 13px; font-weight: 600; color: #202124; }
+  .step-subtitle { font-size: 11px; color: #9aa0a6; margin-left: auto; }
+
+  /* ── Form fields ──────────────────────────────────────── */
+  .field { margin-bottom: 10px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label {
+    display: block; font-size: 11px; font-weight: 500;
+    color: #5f6368; margin-bottom: 3px; letter-spacing: 0.2px;
+  }
+  .field input, .field select {
+    width: 100%; padding: 7px 9px;
+    border: 1px solid #dadce0; border-radius: 6px;
+    font-size: 13px; color: #202124; background: #fff;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    appearance: auto;
+  }
+  .field input:focus, .field select:focus {
+    outline: none; border-color: #1a73e8;
+    box-shadow: 0 0 0 3px rgba(26,115,232,0.12);
+  }
+
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+  /* ── Folder input ─────────────────────────────────────── */
   .folder-row { display: flex; gap: 6px; }
   .folder-row input { flex: 1; }
+  .folder-status { margin-top: 6px; font-size: 12px; min-height: 16px; }
 
-  button { padding: 7px 14px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
-  .btn-primary { background: #1a73e8; color: #fff; }
-  .btn-primary:hover { background: #1557b0; }
-  .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; }
-  .btn-secondary { background: #f1f3f4; color: #202124; }
-  .btn-secondary:hover { background: #e8eaed; }
-  .btn-link { background: none; color: #1a73e8; padding: 0; font-size: 12px; text-decoration: underline; cursor: pointer; border: none; white-space: nowrap; }
-
-  #status { padding: 8px 14px; font-size: 12px; }
-  .status-ok  { color: #188038; background: #e6f4ea; border-radius: 4px; padding: 8px; }
-  .status-err { color: #c5221f; background: #fce8e6; border-radius: 4px; padding: 8px; }
-  .status-info { color: #5f6368; }
-
-  /* Cuts table */
-  #cuts-section { display: none; }
-  .cuts-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  .cuts-table th {
-    background: #f1f3f4; font-size: 11px; font-weight: 600;
-    padding: 5px 6px; text-align: left; border: 1px solid #e0e0e0;
+  /* ── Buttons ──────────────────────────────────────────── */
+  button { border: none; border-radius: 6px; font-size: 13px; cursor: pointer; font-family: inherit; }
+  .btn-primary {
+    background: #1a73e8; color: #fff;
+    padding: 9px 20px; font-weight: 600;
+    transition: background 0.15s, box-shadow 0.15s;
   }
-  .cuts-table td { padding: 4px; border: 1px solid #e0e0e0; vertical-align: middle; }
+  .btn-primary:hover { background: #1557b0; box-shadow: 0 2px 6px rgba(26,115,232,0.35); }
+  .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; box-shadow: none; }
+  .btn-load {
+    background: #f1f3f4; color: #202124;
+    padding: 7px 14px; white-space: nowrap;
+  }
+  .btn-load:hover { background: #e8eaed; }
+  .btn-load:disabled { color: #9aa0a6; cursor: not-allowed; }
+  .btn-link {
+    background: none; color: #1a73e8; padding: 0;
+    font-size: 12px; text-decoration: underline; white-space: nowrap;
+  }
+
+  /* ── Status messages ──────────────────────────────────── */
+  .status-ok {
+    color: #188038; background: #e6f4ea;
+    border-radius: 6px; padding: 9px 12px;
+    animation: fadeIn 0.2s ease;
+  }
+  .status-err {
+    color: #c5221f; background: #fce8e6;
+    border-radius: 6px; padding: 9px 12px;
+    animation: fadeIn 0.2s ease;
+  }
+  .status-info { color: #5f6368; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+  /* ── Toggle switch ────────────────────────────────────── */
+  .toggle-wrap {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: #5f6368; cursor: pointer; user-select: none;
+  }
+  .toggle-wrap input[type=checkbox] { display: none; }
+  .toggle-track {
+    width: 32px; height: 18px; border-radius: 9px;
+    background: #dadce0; position: relative; transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-track::after {
+    content: ""; position: absolute;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: #fff; top: 2px; left: 2px;
+    transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  }
+  .toggle-wrap input:checked + .toggle-track { background: #1a73e8; }
+  .toggle-wrap input:checked + .toggle-track::after { transform: translateX(14px); }
+
+  /* ── Step 3 header ────────────────────────────────────── */
+  .step3-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  }
+
+  /* ── Cuts table ───────────────────────────────────────── */
+  #cuts-section { display: none; }
+  .cuts-table { width: 100%; border-collapse: collapse; }
+  .cuts-table th {
+    background: #f8f9fa; font-size: 10px; font-weight: 600;
+    color: #5f6368; padding: 5px 4px; text-align: left;
+    border-bottom: 2px solid #e0e0e0; letter-spacing: 0.3px; text-transform: uppercase;
+  }
+  .cuts-table td { padding: 3px 3px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  .cuts-table tr:last-child td { border-bottom: none; }
   .cuts-table td.fname {
-    font-size: 11px; color: #5f6368; max-width: 80px;
+    font-size: 11px; color: #5f6368; width: 90px; max-width: 90px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
-  .cuts-table td.chk { width: 24px; text-align: center; }
-  .cuts-table select { padding: 3px 4px; font-size: 12px; }
+  .cuts-table td.chk { width: 22px; text-align: center; }
+  .cuts-table td.chk input { width: auto; }
+  .cuts-table select { padding: 3px 2px; font-size: 11px; border: 1px solid #dadce0; border-radius: 4px; width: 100%; }
+  .cuts-table td:last-child { width: 52px; }
 
-  /* File list for same-for-all */
-  .file-list { margin-top: 6px; max-height: 130px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; }
+  /* ── File list ────────────────────────────────────────── */
+  .file-list {
+    margin-top: 8px; max-height: 130px; overflow-y: auto;
+    border: 1px solid #e8eaed; border-radius: 6px; background: #fafafa;
+  }
   .file-list label {
-    display: flex; align-items: center; gap: 6px; padding: 4px 8px;
-    margin: 0; font-size: 12px; color: #202124;
-    border-bottom: 1px solid #f0f0f0; cursor: pointer;
+    display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+    font-size: 12px; color: #202124; cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
   }
   .file-list label:last-child { border-bottom: none; }
-  .file-list label:hover { background: #f8f9fa; }
+  .file-list label:hover { background: #f1f3f4; }
   .file-list input[type=checkbox] { width: auto; flex-shrink: 0; }
   .file-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .footer { padding: 12px 14px; display: flex; gap: 8px; align-items: center; }
-  .sheet-info { font-size: 11px; color: #9aa0a6; padding: 4px 0 0; }
+  /* ── Shimmer ──────────────────────────────────────────── */
+  .shimmer-overlay {
+    position: absolute; inset: 0; border-radius: 10px; z-index: 5;
+    background: linear-gradient(90deg, #f0f2f5 25%, #e8eaed 50%, #f0f2f5 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .card.loading { position: relative; overflow: hidden; min-height: 180px; }
+
+  /* ── Sticky footer ────────────────────────────────────── */
+  .footer {
+    position: sticky; bottom: 0; z-index: 15;
+    background: #fff; border-top: 1px solid #e0e0e0;
+    padding: 10px 14px; display: flex; gap: 10px; align-items: center;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.06);
+  }
+  #status { padding: 0 10px 10px; }
 </style>
 </head>
 <body>
 
-<!-- Tab selector -->
-<div class="section" style="background:#f8f9fa;">
-  <h3>Sheet Tab</h3>
-  <select id="tab-name" onchange="onTabChange()" style="width:100%;font-weight:600;">
+<!-- Tab bar -->
+<div class="tab-bar">
+  <select id="tab-name" onchange="onTabChange()">
     <option value="">Loading tabs…</option>
   </select>
-  <div class="sheet-info" id="sheet-info"></div>
+  <div class="tab-meta" id="sheet-info"></div>
 </div>
 
 <!-- Step 1: Folder -->
-<div class="section">
-  <h3>Step 1 — Drive Folder</h3>
-  <label>Paste the Google Drive folder link</label>
-  <div class="folder-row">
-    <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
-    <button class="btn-secondary" id="load-btn" onclick="loadFolder()" disabled>Load</button>
+<div class="card">
+  <div class="step-header">
+    <div class="step-badge">1</div>
+    <div class="step-title">Drive Folder</div>
   </div>
-  <div id="folder-status" class="status-info" style="margin-top:6px;font-size:12px;"></div>
+  <div class="field">
+    <label>Paste the Google Drive folder link</label>
+    <div class="folder-row">
+      <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
+      <button class="btn-load" id="load-btn" onclick="loadFolder()" disabled>Load</button>
+    </div>
+  </div>
+  <div class="folder-status status-info" id="folder-status"></div>
 </div>
 
 <!-- Step 2: Shared fields -->
-<div class="section">
-  <h3>Step 2 — Shared Fields</h3>
+<div class="card loading" id="step2-card">
+  <div class="shimmer-overlay" id="step2-shimmer"></div>
+  <div class="step-header">
+    <div class="step-badge">2</div>
+    <div class="step-title">Shared Fields</div>
+  </div>
 
   <div class="row2">
-    <div>
+    <div class="field">
       <label>Product Name</label>
       <input type="text" id="product" list="product-list" placeholder="Search product…" autocomplete="off">
       <datalist id="product-list"></datalist>
     </div>
-    <div>
+    <div class="field">
       <label>Date Added</label>
       <input type="date" id="date">
     </div>
   </div>
 
   <div class="row2">
-    <div>
+    <div class="field">
       <label>INT / INF</label>
       <select id="intInf"></select>
     </div>
-    <div>
+    <div class="field">
       <label>Ad Type</label>
       <select id="adType"></select>
     </div>
   </div>
 
-  <label>Language</label>
-  <select id="language"></select>
+  <div class="field">
+    <label>Language</label>
+    <select id="language"></select>
+  </div>
 
-  <label>Person Full Name</label>
-  <input type="text" id="person" list="person-list" placeholder="Search name… (blank = None)" autocomplete="off" oninput="onPersonInput()">
-  <datalist id="person-list"></datalist>
+  <div class="field">
+    <label>Person Full Name</label>
+    <input type="text" id="person" list="person-list" placeholder="Search name… (blank = None)" autocomplete="off" oninput="onPersonInput()">
+    <datalist id="person-list"></datalist>
+  </div>
+
+  <div class="field">
+    <label>Instagram Profile</label>
+    <input type="text" id="instagram" placeholder="Auto-fills on person select">
+  </div>
 
   <div class="row2">
-    <div>
+    <div class="field">
       <label>Creator Type</label>
       <select id="creatorType"></select>
     </div>
-    <div>
+    <div class="field">
       <label>Onboarding Month</label>
       <select id="onboardingMonth"></select>
     </div>
   </div>
 
-  <label>Instagram Profile</label>
-  <input type="text" id="instagram" placeholder="https://www.instagram.com/…">
-
-  <label>Can take live?</label>
-  <select id="canLive"></select>
-
   <div class="row2">
-    <div>
+    <div class="field">
+      <label>Can take live?</label>
+      <select id="canLive"></select>
+    </div>
+    <div class="field">
       <label>Raised By</label>
       <input type="text" id="raisedBy" value="Pranav">
     </div>
-    <div>
-      <label>Additional Info</label>
-      <input type="text" id="additionalInfo" placeholder="Optional">
-    </div>
+  </div>
+
+  <div class="field">
+    <label>Additional Info</label>
+    <input type="text" id="additionalInfo" placeholder="Optional">
   </div>
 </div>
 
 <!-- Step 3: Per-cut fields -->
-<div class="section" id="cuts-section">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-    <h3 style="margin:0;">Step 3 — Per Cut (<span id="cut-count">0</span> files)</h3>
-    <label style="display:flex;align-items:center;gap:5px;margin:0;font-size:12px;color:#5f6368;cursor:pointer;">
+<div class="card" id="cuts-section">
+  <div class="step3-header">
+    <div class="step-header" style="margin-bottom:0;">
+      <div class="step-badge">3</div>
+      <div class="step-title">Per Cut</div>
+      <div class="step-subtitle" id="cut-count-label"></div>
+    </div>
+    <label class="toggle-wrap">
       <input type="checkbox" id="same-for-all" checked onchange="onSameForAllToggle()">
-      Same for all
+      <span class="toggle-track"></span>
+      <span>Same for all</span>
     </label>
   </div>
 
-  <!-- Shown when "Same for all" is ON -->
+  <!-- Same for all panel -->
   <div id="all-same-panel">
     <div class="row2">
-      <div>
+      <div class="field">
         <label>Funnel</label>
         <select id="all_funnel"></select>
       </div>
-      <div>
+      <div class="field">
         <label>Ratio</label>
         <div id="all_ratio_wrap"></div>
       </div>
     </div>
     <div class="row2">
-      <div>
+      <div class="field">
         <label>Narrative</label>
         <div id="all_narrative_wrap"></div>
       </div>
-      <div>
+      <div class="field">
         <label>Ad Format</label>
         <div id="all_adFormat_wrap"></div>
       </div>
     </div>
-    <label style="margin-top:10px;">Files to include</label>
-    <div class="file-list" id="sfa-file-list">
-      <div style="padding:8px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>
+    <div class="field" style="margin-top:4px;">
+      <label>Files to include</label>
+      <div class="file-list" id="sfa-file-list">
+        <div style="padding:8px 10px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>
+      </div>
     </div>
   </div>
 
-  <!-- Shown when "Same for all" is OFF -->
+  <!-- Per-cut table -->
   <div id="per-cut-panel" style="display:none;">
     <div style="overflow-x:auto;">
-      <table class="cuts-table" id="cuts-table">
+      <table class="cuts-table">
         <thead>
           <tr>
             <th class="chk">✓</th>
-            <th>File</th>
+            <th style="width:90px;">File</th>
             <th>Funnel</th>
             <th>Narrative</th>
             <th>Format</th>
@@ -213,21 +354,19 @@
   </div>
 </div>
 
-<!-- Footer -->
+<!-- Sticky footer -->
 <div class="footer">
-  <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>
-    Add to Sheet
-  </button>
+  <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>Add to Sheet</button>
   <span id="submit-status" style="font-size:12px;color:#5f6368;"></span>
 </div>
 
-<div id="status"></div>
+<div id="status" style="padding:0 10px 10px;"></div>
 
 <script>
   let opts = {};
   let files = [];
   let sheetCtx = {};
-  let personMap = {};  // name → instagram URL
+  let personMap = {};
 
   const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
@@ -249,6 +388,12 @@
           opt.value = name; opt.textContent = name;
           sel.appendChild(opt);
         });
+
+        // Remove shimmer
+        const shimmer = document.getElementById("step2-shimmer");
+        if (shimmer) shimmer.remove();
+        document.getElementById("step2-card").classList.remove("loading");
+
         document.getElementById("load-btn").disabled = false;
         onTabChange();
       })
@@ -258,17 +403,16 @@
 
   function onTabChange() {
     if (files.length > 0) resetBatch();
-
     const tabName = document.getElementById("tab-name").value;
     document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
       .withSuccessHandler(ctx => {
         sheetCtx = ctx;
         document.getElementById("sheet-info").textContent =
-          `${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
+          `${ctx.totalRows} rows · Next: ${ctx.nextSno}`;
       })
       .withFailureHandler(() => {
-        document.getElementById("sheet-info").textContent = "⚠ No tracker headers found on this tab.";
+        document.getElementById("sheet-info").textContent = "⚠ No headers found on this tab";
       })
       .getSheetContext(tabName);
   }
@@ -285,10 +429,20 @@
     fillDatalist("product-list", opts.product || []);
     fillDatalist("person-list",  opts.person  || []);
 
-    // Build "same for all" selects — available before any folder is loaded
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
     buildSelectInDiv("all_adFormat_wrap",  "all_adFormat",  opts.adFormat,  true);
+  }
+
+  function fill(id, values) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = "";
+    (values || []).forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v; opt.textContent = v || "—";
+      el.appendChild(opt);
+    });
   }
 
   function fillDatalist(id, values) {
@@ -306,17 +460,6 @@
     const name = document.getElementById("person").value.trim();
     const ig   = personMap[name];
     if (ig) document.getElementById("instagram").value = ig;
-  }
-
-  function fill(id, values) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = "";
-    values.forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v; opt.textContent = v || "—";
-      el.appendChild(opt);
-    });
   }
 
   function buildSelectInDiv(wrapId, selId, values, allowCustom, defaultVal) {
@@ -338,8 +481,8 @@
       .withSuccessHandler(result => {
         if (!result.ok) { setFolderStatus(result.msg, false); return; }
         files = result.files;
-        setFolderStatus(`Found ${files.length} file${files.length !== 1 ? "s" : ""}.`, true);
-        document.getElementById("cut-count").textContent = files.length;
+        setFolderStatus(`${files.length} file${files.length !== 1 ? "s" : ""} found`, true);
+        document.getElementById("cut-count-label").textContent = files.length + " files";
         document.getElementById("cuts-section").style.display = "block";
         buildCutsTable();
         buildSfaFileList();
@@ -352,7 +495,7 @@
   function setFolderStatus(msg, ok) {
     const el = document.getElementById("folder-status");
     el.textContent = msg;
-    el.className = ok === true ? "status-ok" : ok === false ? "status-err" : "status-info";
+    el.className = "folder-status " + (ok === true ? "status-ok" : ok === false ? "status-err" : "status-info");
   }
 
   function onSameForAllToggle() {
@@ -374,14 +517,11 @@
       tdChk.className = "chk";
       const chk = document.createElement("input");
       chk.type = "checkbox"; chk.id = "pct_include_" + i; chk.checked = true;
-      chk.style.cssText = "width:auto;";
       tdChk.appendChild(chk);
       tr.appendChild(tdChk);
 
       const tdName = document.createElement("td");
-      tdName.className = "fname";
-      tdName.title = f.name;
-      tdName.textContent = f.name;
+      tdName.className = "fname"; tdName.title = f.name; tdName.textContent = f.name;
       tr.appendChild(tdName);
 
       tr.appendChild(makeSelectCell("funnel_"    + i, opts.funnel));
@@ -393,30 +533,25 @@
     });
   }
 
-  // File checklist for "same for all" mode
   function buildSfaFileList() {
     const list = document.getElementById("sfa-file-list");
     list.innerHTML = "";
     files.forEach((f, i) => {
-      const lbl = document.createElement("label");
-      const chk = document.createElement("input");
+      const lbl  = document.createElement("label");
+      const chk  = document.createElement("input");
       chk.type = "checkbox"; chk.id = "sfa_include_" + i; chk.checked = true;
       const span = document.createElement("span");
-      span.textContent = f.name;
-      span.title = f.name;
-      lbl.appendChild(chk);
-      lbl.appendChild(span);
+      span.textContent = f.name; span.title = f.name;
+      lbl.appendChild(chk); lbl.appendChild(span);
       list.appendChild(lbl);
     });
   }
 
-  // Returns a <div> with a select (+ optional custom input)
   function makeSelectField(id, values, allowCustom, defaultVal) {
     const wrap = document.createElement("div");
     const sel  = document.createElement("select");
     sel.id = id;
-
-    values.forEach(v => {
+    (values || []).forEach(v => {
       const opt = document.createElement("option");
       opt.value = v; opt.textContent = v || "—";
       if (defaultVal && v === defaultVal) opt.selected = true;
@@ -424,10 +559,9 @@
     });
 
     const inp = document.createElement("input");
-    inp.type = "text";
-    inp.id = id + "_custom";
+    inp.type = "text"; inp.id = id + "_custom";
     inp.placeholder = "Type and press Enter";
-    inp.style.cssText = "display:none;font-size:12px;padding:3px 4px;width:100%;";
+    inp.style.cssText = "display:none;font-size:12px;padding:4px 6px;width:100%;border:1px solid #dadce0;border-radius:4px;";
 
     if (allowCustom) {
       const customOpt = document.createElement("option");
@@ -436,9 +570,7 @@
 
       sel.addEventListener("change", () => {
         if (sel.value === "__custom__") {
-          sel.style.display = "none";
-          inp.style.display = "";
-          inp.focus();
+          sel.style.display = "none"; inp.style.display = ""; inp.focus();
         }
       });
 
@@ -449,22 +581,17 @@
           newOpt.value = val; newOpt.textContent = val;
           sel.insertBefore(newOpt, customOpt);
           sel.value = val;
-        } else {
-          sel.value = values[0];
-        }
-        inp.style.display = "none";
-        sel.style.display = "";
+        } else { sel.value = values[0]; }
+        inp.style.display = "none"; sel.style.display = "";
       };
       inp.addEventListener("keydown", e => { if (e.key === "Enter") confirmCustom(); });
       inp.addEventListener("blur", confirmCustom);
     }
 
-    wrap.appendChild(sel);
-    wrap.appendChild(inp);
+    wrap.appendChild(sel); wrap.appendChild(inp);
     return wrap;
   }
 
-  // Returns a <td> wrapping a select field (for the per-cut table)
   function makeSelectCell(id, values, allowCustom, defaultVal) {
     const td = document.createElement("td");
     td.appendChild(makeSelectField(id, values, allowCustom, defaultVal));
@@ -498,16 +625,16 @@
   // ── Reset batch ───────────────────────────────────────────
   function resetBatch() {
     files = [];
-    document.getElementById("folder-url").value       = "";
+    document.getElementById("folder-url").value = "";
     document.getElementById("folder-status").textContent = "";
-    document.getElementById("folder-status").className   = "status-info";
+    document.getElementById("folder-status").className = "folder-status status-info";
     document.getElementById("cuts-section").style.display = "none";
-    document.getElementById("cuts-body").innerHTML        = "";
-    document.getElementById("sfa-file-list").innerHTML    =
-      '<div style="padding:8px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>';
-    document.getElementById("cut-count").textContent = "0";
-    document.getElementById("submit-btn").disabled   = true;
-    document.getElementById("status").innerHTML      = "";
+    document.getElementById("cuts-body").innerHTML = "";
+    document.getElementById("sfa-file-list").innerHTML =
+      '<div style="padding:8px 10px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>';
+    document.getElementById("cut-count-label").textContent = "";
+    document.getElementById("submit-btn").disabled = true;
+    document.getElementById("status").innerHTML = "";
   }
 
   // ── Submit ────────────────────────────────────────────────
@@ -563,7 +690,7 @@
           sheetCtx.lastDataRow = result.lastDataRow;
           sheetCtx.totalRows   = result.totalRows;
           document.getElementById("sheet-info").textContent =
-            `${result.totalRows} existing rows · Next S.No.: ${result.nextSno}`;
+            `${result.totalRows} rows · Next: ${result.nextSno}`;
           showStatusWithReset(result.msg);
         } else {
           showStatus(result.msg, false);
@@ -592,27 +719,21 @@
     const el  = document.getElementById("status");
     const div = document.createElement("div");
     div.className = ok ? "status-ok" : "status-err";
-    div.style.cssText = "margin:8px 14px;";
     div.textContent = msg;
-    el.innerHTML = "";
-    el.appendChild(div);
+    el.innerHTML = ""; el.appendChild(div);
   }
 
   function showStatusWithReset(msg) {
     const el  = document.getElementById("status");
     const div = document.createElement("div");
     div.className = "status-ok";
-    div.style.cssText = "margin:8px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;";
+    div.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:8px;";
     const txt = document.createElement("span");
     txt.textContent = msg;
     const btn = document.createElement("button");
-    btn.className = "btn-link";
-    btn.textContent = "New batch";
-    btn.onclick = resetBatch;
-    div.appendChild(txt);
-    div.appendChild(btn);
-    el.innerHTML = "";
-    el.appendChild(div);
+    btn.className = "btn-link"; btn.textContent = "New batch"; btn.onclick = resetBatch;
+    div.appendChild(txt); div.appendChild(btn);
+    el.innerHTML = ""; el.appendChild(div);
   }
 
   function formatDateForSheet(isoDate) {
