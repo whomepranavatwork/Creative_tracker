@@ -84,9 +84,10 @@ function getSheetContext(tabName) {
 
   const lastRow  = sheet.getLastRow();
   const dataRows = lastRow - headerRow;
-  let nextSno     = 1;
-  let lastDataRow = headerRow;
-  let adNameFormula = "";
+  let nextSno          = 1;
+  let lastDataRow      = headerRow;
+  let adNameFormula    = "";
+  let adNameFormulaRow = null;
 
   if (dataRows > 0) {
     // Use Funnel Type to find lastDataRow — pre-filled rows never have it.
@@ -116,19 +117,31 @@ function getSheetContext(tabName) {
       }
     }
 
-    // Read the Ad Name formula from the last real data row so we can replicate it
-    if (colIndex.adName != null && lastDataRow > headerRow) {
-      adNameFormula = sheet.getRange(lastDataRow, colIndex.adName + 1).getFormula();
+    // Scan the entire Ad Name column in one call to find a row with the formula.
+    // We can't rely on lastDataRow alone because the script may have overwritten
+    // that row's formula with setValues("") in a previous run.
+    if (colIndex.adName != null) {
+      const allFormulas = sheet
+        .getRange(headerRow + 1, colIndex.adName + 1, lastRow - headerRow, 1)
+        .getFormulas();
+      for (let i = allFormulas.length - 1; i >= 0; i--) {
+        if (allFormulas[i][0]) {
+          adNameFormula    = allFormulas[i][0];
+          adNameFormulaRow = headerRow + 1 + i; // absolute 1-indexed row
+          break;
+        }
+      }
     }
   }
 
   return {
-    sheetName:    sheet.getName(),
-    nextSno:      String(nextSno).padStart(5, "0"),
+    sheetName:       sheet.getName(),
+    nextSno:         String(nextSno).padStart(5, "0"),
     today,
-    totalRows:    dataRows,
+    totalRows:       dataRows,
     lastDataRow,
     adNameFormula,
+    adNameFormulaRow,
     colIndex,
     headerRow
   };
@@ -225,23 +238,17 @@ function addEntries(payload) {
     // Hyperlink Drive link columns
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
-    // Write Ad Name formula to every new row.
-    // Use the cached formula from the last real data row (passed in payload).
-    // Fall back to copying from the row above if no cached formula.
-    if (colIndex.adName != null) {
-      const formulaSourceRow = payload.lastDataRow;
-      const srcCell = sheet.getRange(formulaSourceRow, colIndex.adName + 1);
-      const formula = adNameFormula || srcCell.getFormula();
-      if (formula) {
-        sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1)
-          .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
-      }
+    // Copy Ad Name formula from the row where we actually found it
+    // (adNameFormulaRow). copyFrom adjusts relative references automatically,
+    // so it doesn't matter if the source is a template row far below lastDataRow.
+    if (colIndex.adName != null && payload.adNameFormulaRow) {
+      const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
+      sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1)
+        .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
     }
 
-    // Same for YT Ad Name
-    if (colIndex.ytAdName != null) {
-      const formulaSourceRow = payload.lastDataRow;
-      const srcCell = sheet.getRange(formulaSourceRow, colIndex.ytAdName + 1);
+    if (colIndex.ytAdName != null && payload.adNameFormulaRow) {
+      const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.ytAdName + 1);
       if (srcCell.getFormula()) {
         sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1)
           .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
