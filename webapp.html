@@ -8,420 +8,500 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --blue:       #1a73e8;
-    --blue-dark:  #1557b0;
-    --blue-light: rgba(26,115,232,0.10);
-    --green:      #188038;
-    --green-bg:   #e6f4ea;
-    --red:        #c5221f;
-    --red-bg:     #fce8e6;
-    --text:       #202124;
-    --text-muted: #5f6368;
-    --border:     #dadce0;
-    --bg:         #f0f4f8;
-    --card:       #ffffff;
-    --radius:     12px;
-    --shadow:     0 1px 4px rgba(0,0,0,0.08), 0 4px 16px rgba(0,0,0,0.04);
+    --blue:      #1a73e8;
+    --blue-dark: #1557b0;
+    --blue-tint: #e8f0fe;
+    --green:     #1e8e3e;
+    --green-bg:  #e6f4ea;
+    --green-border: #b7dfbe;
+    --red:       #d93025;
+    --red-bg:    #fce8e6;
+    --red-border:#f5b7b4;
+    --text:      #1c1e21;
+    --muted:     #5f6368;
+    --light:     #9aa0a6;
+    --border:    #dadce0;
+    --bg:        #f1f4f8;
+    --card:      #ffffff;
+    --radius:    12px;
+    --shadow:    0 1px 3px rgba(60,64,67,.1), 0 4px 16px rgba(60,64,67,.06);
   }
 
   body {
     font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    font-size: 14px; color: var(--text); background: var(--bg);
-    min-height: 100vh; padding-bottom: 80px;
+    font-size: 14px; line-height: 1.5;
+    color: var(--text); background: var(--bg);
+    min-height: 100vh; padding-bottom: 90px;
   }
 
-  /* ── Header ────────────────────────────────────────────── */
+  /* ── Header ── */
   .header {
-    background: var(--blue); color: #fff;
-    padding: 0 24px;
-    position: sticky; top: 0; z-index: 100;
-    box-shadow: 0 2px 8px rgba(26,115,232,0.3);
+    background: linear-gradient(135deg, #1a73e8 0%, #1255b8 100%);
+    color: #fff; position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(18,85,184,.4);
   }
-  .header-inner {
-    max-width: 720px; margin: 0 auto;
-    display: flex; align-items: center; gap: 16px;
-    height: 56px;
+  .header-top {
+    max-width: 760px; margin: 0 auto; padding: 14px 24px 10px;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
   }
-  .header-title {
-    font-size: 17px; font-weight: 700; letter-spacing: -0.3px;
-    white-space: nowrap;
-  }
+  .header-brand { display: flex; flex-direction: column; gap: 2px; }
+  .header-title { font-size: 19px; font-weight: 700; letter-spacing: -.4px; }
+  .header-sub   { font-size: 11px; color: rgba(255,255,255,.65); }
+  .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
   .header-select {
-    flex: 1; max-width: 220px;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 8px; color: #fff;
-    font-size: 13px; font-weight: 600;
-    padding: 7px 10px; cursor: pointer;
-    appearance: auto;
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 8px; color: #fff; font-size: 13px; font-weight: 600;
+    padding: 6px 10px; cursor: pointer; min-width: 150px;
   }
-  .header-select option { background: #1a73e8; }
-  .header-meta {
-    font-size: 12px; color: rgba(255,255,255,0.7);
-    white-space: nowrap; min-width: 120px;
-  }
+  .header-select option { background: #1255b8; }
+  .header-meta { font-size: 11px; color: rgba(255,255,255,.6); }
 
-  /* ── Status banner ─────────────────────────────────────── */
-  #status { max-width: 720px; margin: 0 auto; padding: 12px 24px 0; }
-  .status-ok {
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 12px; background: var(--green-bg); color: var(--green);
-    border-radius: var(--radius); padding: 12px 16px;
-    animation: slideDown 0.25s ease;
+  /* ── Progress strip ── */
+  .progress-strip { background: rgba(0,0,0,.14); border-top: 1px solid rgba(255,255,255,.1); }
+  .progress-inner {
+    max-width: 760px; margin: 0 auto; padding: 0 24px;
+    display: flex;
   }
-  .status-err {
-    background: var(--red-bg); color: var(--red);
-    border-radius: var(--radius); padding: 12px 16px;
-    animation: slideDown 0.25s ease;
+  .prog-step {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    padding: 9px 0; font-size: 12px; color: rgba(255,255,255,.45);
+    position: relative;
   }
-  @keyframes slideDown {
-    from { opacity: 0; transform: translateY(-8px); }
+  .prog-step:not(:last-child)::after {
+    content: ""; position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+    width: 1px; height: 14px; background: rgba(255,255,255,.18);
+  }
+  .prog-step.ps-active { color: rgba(255,255,255,.9); }
+  .prog-step.ps-done   { color: rgba(255,255,255,.65); }
+  .prog-dot {
+    width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid rgba(255,255,255,.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,.45);
+    transition: all .2s;
+  }
+  .prog-step.ps-active .prog-dot { background: #fff; color: var(--blue); border-color: #fff; }
+  .prog-step.ps-done   .prog-dot { background: var(--green); border-color: var(--green); color: #fff; }
+
+  /* ── Status ── */
+  #status { max-width: 760px; margin: 0 auto; }
+  .banner {
+    margin: 14px 24px 0;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-radius: var(--radius); padding: 12px 16px;
+    font-size: 14px; animation: fadeDown .2s ease;
+  }
+  .banner-ok  { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .banner-err { background: var(--red-bg);   color: var(--red);   border: 1px solid var(--red-border); }
+  @keyframes fadeDown {
+    from { opacity: 0; transform: translateY(-6px); }
     to   { opacity: 1; transform: none; }
   }
 
-  /* ── Main content ──────────────────────────────────────── */
-  .main { max-width: 720px; margin: 0 auto; padding: 20px 24px; }
+  /* ── Main ── */
+  .main { max-width: 760px; margin: 0 auto; padding: 18px 24px; }
 
-  /* ── Cards ─────────────────────────────────────────────── */
+  /* ── Cards ── */
   .card {
     background: var(--card); border-radius: var(--radius);
-    box-shadow: var(--shadow); padding: 24px;
-    margin-bottom: 16px;
+    box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden;
+    border-left: 3px solid var(--border); transition: border-color .25s;
   }
-  .card-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  .card.c-active { border-left-color: var(--blue); }
+  .card.c-done   { border-left-color: var(--green); }
+
+  .card-hd {
+    padding: 16px 22px 12px; border-bottom: 1px solid #f3f4f6;
+    display: flex; align-items: center; gap: 12px;
   }
   .step-badge {
-    width: 26px; height: 26px; border-radius: 50%;
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
     background: var(--blue); color: #fff;
     font-size: 12px; font-weight: 700;
     display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
+    transition: background .2s;
   }
   .step-badge.done { background: var(--green); }
+  .card-titles { flex: 1; }
   .card-title { font-size: 15px; font-weight: 600; }
-  .card-subtitle { font-size: 12px; color: var(--text-muted); margin-left: auto; }
+  .card-desc  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+  .pill {
+    font-size: 11px; font-weight: 600; padding: 3px 10px;
+    border-radius: 20px; white-space: nowrap;
+  }
+  .pill-blue  { background: var(--blue-tint); color: var(--blue); }
+  .pill-green { background: var(--green-bg);  color: var(--green); }
 
-  /* ── Fields ─────────────────────────────────────────────── */
+  .card-body { padding: 18px 22px; }
+
+  /* ── Fields ── */
   .field { margin-bottom: 14px; }
   .field:last-child { margin-bottom: 0; }
   .field > label {
-    display: block; font-size: 11px; font-weight: 600;
-    color: var(--text-muted); text-transform: uppercase;
-    letter-spacing: 0.5px; margin-bottom: 5px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 5px;
   }
+  .hint { font-size: 10px; color: var(--light); text-transform: none; letter-spacing: 0; font-weight: 400; }
   .field input[type=text],
   .field input[type=date],
   .field select {
     width: 100%; height: 40px; padding: 0 12px;
     border: 1.5px solid var(--border); border-radius: 8px;
     font-size: 14px; color: var(--text); background: #fff;
-    transition: border-color 0.15s, box-shadow 0.15s;
-    appearance: auto; font-family: inherit;
+    transition: border-color .15s, box-shadow .15s; font-family: inherit;
   }
   .field input:focus, .field select:focus {
     outline: none; border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-light);
+    box-shadow: 0 0 0 3px rgba(26,115,232,.11);
   }
+  .field input::placeholder { color: var(--light); }
 
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  .g2 { display: grid; grid-template-columns: 1fr 1fr;       gap: 14px; }
+  .g3 { display: grid; grid-template-columns: 1fr 1fr 1fr;   gap: 14px; }
+  .mt { margin-top: 14px; }
+  .sep { margin: 16px 0; border: none; border-top: 1px solid #f0f2f5; }
 
-  @media (max-width: 500px) {
-    .grid2, .grid3 { grid-template-columns: 1fr; }
-    .main { padding: 14px 16px; }
-    .header-inner { gap: 10px; }
-    .header-meta { display: none; }
-  }
-
-  /* ── Folder row ─────────────────────────────────────────── */
+  /* ── Folder row ── */
   .folder-row { display: flex; gap: 8px; }
   .folder-row input { flex: 1; }
   .folder-msg { margin-top: 8px; font-size: 13px; min-height: 18px; }
-  .msg-ok  { color: var(--green); }
-  .msg-err { color: var(--red); }
-  .msg-info { color: var(--text-muted); }
+  .msg-ok   { color: var(--green); }
+  .msg-err  { color: var(--red); }
+  .msg-info { color: var(--muted); }
 
-  /* ── Buttons ─────────────────────────────────────────────── */
-  button { font-family: inherit; border: none; cursor: pointer; border-radius: 8px; }
+  /* ── Buttons ── */
+  button { font-family: inherit; border: none; cursor: pointer; border-radius: 8px; transition: all .15s; }
   .btn-primary {
-    height: 40px; padding: 0 20px;
-    background: var(--blue); color: #fff;
-    font-size: 14px; font-weight: 600;
-    transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+    height: 40px; padding: 0 22px;
+    background: var(--blue); color: #fff; font-size: 14px; font-weight: 600;
   }
-  .btn-primary:hover { background: var(--blue-dark); box-shadow: 0 3px 10px rgba(26,115,232,0.35); }
-  .btn-primary:active { transform: scale(0.98); }
-  .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; box-shadow: none; transform: none; }
-  .btn-secondary {
+  .btn-primary:hover  { background: var(--blue-dark); box-shadow: 0 3px 10px rgba(26,115,232,.35); }
+  .btn-primary:active { transform: scale(.98); }
+  .btn-primary:disabled { background: #c5c8cc; cursor: not-allowed; box-shadow: none; transform: none; }
+  .btn-sec {
     height: 40px; padding: 0 16px;
-    background: #f1f3f4; color: var(--text);
-    font-size: 14px; white-space: nowrap;
+    background: #f1f3f4; color: var(--text); font-size: 14px; white-space: nowrap;
   }
-  .btn-secondary:hover { background: #e8eaed; }
-  .btn-secondary:disabled { color: #9aa0a6; cursor: not-allowed; }
-  .btn-link {
-    background: none; color: var(--blue); padding: 0;
-    font-size: 13px; font-weight: 500; text-decoration: underline;
-  }
+  .btn-sec:hover    { background: #e8eaed; }
+  .btn-sec:disabled { color: var(--light); cursor: not-allowed; }
+  .btn-link { background: none; color: var(--blue); padding: 0; font-size: 13px; font-weight: 600; }
+  .btn-link:hover { text-decoration: underline; }
 
-  /* ── Toggle ──────────────────────────────────────────────── */
-  .toggle-wrap {
+  /* ── Toggle ── */
+  .tog-wrap {
     display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;
+    font-size: 12px; color: var(--muted); cursor: pointer; user-select: none;
   }
-  .toggle-wrap input[type=checkbox] { display: none; }
-  .toggle-track {
+  .tog-wrap input[type=checkbox] { display: none; }
+  .tog-track {
     width: 36px; height: 20px; border-radius: 10px;
-    background: #dadce0; position: relative;
-    transition: background 0.2s; flex-shrink: 0;
+    background: #dadce0; position: relative; transition: background .2s; flex-shrink: 0;
   }
-  .toggle-track::after {
+  .tog-track::after {
     content: ""; position: absolute;
     width: 16px; height: 16px; border-radius: 50%;
     background: #fff; top: 2px; left: 2px;
-    transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    transition: transform .2s; box-shadow: 0 1px 3px rgba(0,0,0,.25);
   }
-  .toggle-wrap input:checked + .toggle-track { background: var(--blue); }
-  .toggle-wrap input:checked + .toggle-track::after { transform: translateX(16px); }
+  .tog-wrap input:checked + .tog-track { background: var(--blue); }
+  .tog-wrap input:checked + .tog-track::after { transform: translateX(16px); }
 
-  /* ── Cut Details section ─────────────────────────────────── */
-  .step3-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 20px;
+  /* ── Step 3 head ── */
+  .s3-head {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
   }
-  .step3-left { display: flex; align-items: center; gap: 10px; }
 
-  /* Same-for-all panel */
-  .sfa-panel { }
-
-  /* File list */
-  .file-label { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  /* ── File list ── */
+  .fl-label {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
+  }
   .file-list {
     border: 1.5px solid var(--border); border-radius: 8px;
-    max-height: 220px; overflow-y: auto; background: #fafafa;
+    max-height: 240px; overflow-y: auto; background: #fafbfc;
   }
-  .file-list-item {
+  .file-item {
     display: flex; align-items: center; gap: 10px;
-    padding: 8px 14px; border-bottom: 1px solid #f0f0f0;
-    cursor: pointer; font-size: 13px; color: var(--text);
+    padding: 8px 14px; border-bottom: 1px solid #f0f2f5;
+    cursor: pointer; font-size: 13px; transition: background .1s;
   }
-  .file-list-item:last-child { border-bottom: none; }
-  .file-list-item:hover { background: #f1f3f4; }
-  .file-list-item input[type=checkbox] { width: auto; flex-shrink: 0; }
-  .file-list-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .file-list-placeholder { padding: 12px 14px; font-size: 13px; color: #9aa0a6; }
+  .file-item:last-child { border-bottom: none; }
+  .file-item:hover { background: #f0f4ff; }
+  .file-item input[type=checkbox] { width: auto; flex-shrink: 0; accent-color: var(--blue); }
+  .file-item .fi-num {
+    font-size: 10px; font-weight: 600; color: var(--light);
+    background: #eef0f3; border-radius: 4px; padding: 1px 5px; flex-shrink: 0;
+  }
+  .file-item .fi-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .file-empty { padding: 16px 14px; font-size: 13px; color: var(--light); text-align: center; }
 
-  /* Per-cut cards */
+  /* ── Per-cut cards ── */
   .cut-card {
     border: 1.5px solid var(--border); border-radius: 10px;
-    padding: 14px 16px; margin-bottom: 10px; background: #fafafa;
+    margin-bottom: 10px; overflow: hidden;
   }
   .cut-card:last-child { margin-bottom: 0; }
-  .cut-card-header {
-    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+  .cut-head {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; background: #f8f9fa; border-bottom: 1px solid var(--border);
   }
-  .cut-card-header input[type=checkbox] { width: auto; flex-shrink: 0; }
-  .cut-filename {
-    font-size: 13px; font-weight: 500; color: var(--text);
+  .cut-head input[type=checkbox] { width: auto; flex-shrink: 0; accent-color: var(--blue); }
+  .cut-num {
+    font-size: 10px; font-weight: 600; color: var(--light);
+    background: var(--border); border-radius: 4px; padding: 1px 6px; flex-shrink: 0;
+  }
+  .cut-name {
+    font-size: 13px; font-weight: 500;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;
   }
-  .cut-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .cut-field > label {
-    display: block; font-size: 10px; font-weight: 600;
-    color: var(--text-muted); text-transform: uppercase;
-    letter-spacing: 0.4px; margin-bottom: 4px;
+  .cut-body {
+    padding: 12px 14px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
   }
-  .cut-field select, .cut-field input[type=text] {
-    width: 100%; height: 36px; padding: 0 10px;
+  .cf > label {
+    display: block; font-size: 10px; font-weight: 600;
+    color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 4px;
+  }
+  .cf select, .cf input[type=text] {
+    width: 100%; height: 34px; padding: 0 10px;
     border: 1.5px solid var(--border); border-radius: 6px;
     font-size: 13px; color: var(--text); background: #fff; font-family: inherit;
   }
-  .cut-field select:focus, .cut-field input:focus {
-    outline: none; border-color: var(--blue);
-    box-shadow: 0 0 0 3px var(--blue-light);
+  .cf select:focus, .cf input:focus {
+    outline: none; border-color: var(--blue); box-shadow: 0 0 0 2px rgba(26,115,232,.1);
   }
-  .cut-field.full { grid-column: 1 / -1; }
+  .cf.full { grid-column: 1 / -1; }
 
-  /* ── Sticky submit bar ───────────────────────────────────── */
-  .submit-bar {
+  /* ── Submit bar ── */
+  .sub-bar {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
     background: #fff; border-top: 1px solid var(--border);
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
-    display: none;
+    box-shadow: 0 -4px 20px rgba(0,0,0,.1); display: none;
   }
-  .submit-bar-inner {
-    max-width: 720px; margin: 0 auto;
-    padding: 12px 24px; display: flex; align-items: center; gap: 12px;
+  .sub-inner {
+    max-width: 760px; margin: 0 auto; padding: 12px 24px;
+    display: flex; align-items: center; gap: 14px;
   }
-  #submit-status { font-size: 13px; color: var(--text-muted); }
+  .sub-meta { flex: 1; }
+  .sub-meta-main { font-size: 14px; font-weight: 500; }
+  .sub-meta-sub  { font-size: 12px; color: var(--muted); }
+  #submit-status { font-size: 13px; color: var(--muted); }
+
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,.4); border-top-color: #fff;
+    border-radius: 50%; animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    .g2, .g3 { grid-template-columns: 1fr; }
+    .main { padding: 12px 16px; }
+    .header-top { padding: 12px 16px 8px; }
+    .progress-inner { padding: 0 16px; }
+    .card-body, .card-hd { padding-left: 16px; padding-right: 16px; }
+    .sub-inner { padding: 10px 16px; }
+    .header-sub, .header-meta { display: none; }
+    .cut-body { grid-template-columns: 1fr; }
+  }
 </style>
 </head>
 <body>
 
-<!-- Header -->
+<!-- ── Header ── -->
 <div class="header">
-  <div class="header-inner">
-    <div class="header-title">Bias for Action!</div>
-    <select class="header-select" id="tab-name" onchange="onTabChange()">
-      <option value="">Loading…</option>
-    </select>
-    <div class="header-meta" id="sheet-info"></div>
+  <div class="header-top">
+    <div class="header-brand">
+      <div class="header-title">⚡ Bias for Action!</div>
+      <div class="header-sub">Creative Tracker — bulk entry tool</div>
+    </div>
+    <div class="header-right">
+      <select class="header-select" id="tab-name" onchange="onTabChange()">
+        <option value="">Loading tabs…</option>
+      </select>
+      <div class="header-meta" id="sheet-info"></div>
+    </div>
+  </div>
+  <div class="progress-strip">
+    <div class="progress-inner">
+      <div class="prog-step ps-active" id="ps1"><div class="prog-dot" id="pd1">1</div><span>Drive Folder</span></div>
+      <div class="prog-step" id="ps2"><div class="prog-dot" id="pd2">2</div><span>Shared Fields</span></div>
+      <div class="prog-step" id="ps3"><div class="prog-dot" id="pd3">3</div><span>Cut Details</span></div>
+    </div>
   </div>
 </div>
 
-<!-- Status banner -->
+<!-- ── Status ── -->
 <div id="status"></div>
 
-<!-- Main -->
+<!-- ── Main ── -->
 <div class="main">
 
-  <!-- Step 1: Drive Folder -->
-  <div class="card">
-    <div class="card-header">
+  <!-- Step 1 -->
+  <div class="card c-active" id="card-1">
+    <div class="card-hd">
       <div class="step-badge" id="badge-1">1</div>
-      <div class="card-title">Drive Folder</div>
-    </div>
-    <div class="field">
-      <label>Paste the Google Drive folder link</label>
-      <div class="folder-row">
-        <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
-        <button class="btn-secondary" id="load-btn" onclick="loadFolder()" disabled>Load</button>
+      <div class="card-titles">
+        <div class="card-title">Drive Folder</div>
+        <div class="card-desc">Files in this folder will be queued for entry</div>
       </div>
+      <div id="file-count-pill"></div>
     </div>
-    <div class="folder-msg msg-info" id="folder-status"></div>
+    <div class="card-body">
+      <div class="field">
+        <label>Google Drive Folder URL</label>
+        <div class="folder-row">
+          <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
+          <button class="btn-sec" id="load-btn" onclick="loadFolder()" disabled>Load</button>
+        </div>
+      </div>
+      <div class="folder-msg msg-info" id="folder-status"></div>
+    </div>
   </div>
 
-  <!-- Step 2: Shared Fields -->
+  <!-- Step 2 -->
   <div class="card" id="step2-card" style="display:none;">
-    <div class="card-header">
+    <div class="card-hd">
       <div class="step-badge" id="badge-2">2</div>
-      <div class="card-title">Shared Fields</div>
-    </div>
-
-    <div class="field">
-      <label>Product Name</label>
-      <input type="text" id="product" list="product-list" placeholder="Search product…" autocomplete="off">
-      <datalist id="product-list"></datalist>
-    </div>
-
-    <div class="grid3">
-      <div class="field">
-        <label>Date Added</label>
-        <input type="date" id="date">
-      </div>
-      <div class="field">
-        <label>INT / INF</label>
-        <select id="intInf"></select>
-      </div>
-      <div class="field">
-        <label>Ad Type</label>
-        <select id="adType"></select>
+      <div class="card-titles">
+        <div class="card-title">Shared Fields</div>
+        <div class="card-desc">These values apply to every file in this batch</div>
       </div>
     </div>
-
-    <div class="grid2">
+    <div class="card-body">
       <div class="field">
-        <label>Language</label>
-        <select id="language"></select>
+        <label>Product Name</label>
+        <select id="product"></select>
       </div>
-      <div class="field">
-        <label>Can Take Live?</label>
-        <select id="canLive"></select>
-      </div>
-    </div>
 
-    <div class="field">
-      <label>Person Full Name</label>
-      <input type="text" id="person" list="person-list" placeholder="Search name… (blank = None)" autocomplete="off" oninput="onPersonInput()">
-      <datalist id="person-list"></datalist>
-    </div>
-
-    <div class="field">
-      <label>Instagram Profile</label>
-      <input type="text" id="instagram" placeholder="Auto-fills on person select">
-    </div>
-
-    <div class="grid3">
-      <div class="field">
-        <label>Creator Type</label>
-        <select id="creatorType"></select>
+      <div class="g3 mt">
+        <div class="field">
+          <label>Date Added <span class="hint">auto today</span></label>
+          <input type="date" id="date">
+        </div>
+        <div class="field">
+          <label>INT / INF</label>
+          <select id="intInf"></select>
+        </div>
+        <div class="field">
+          <label>Ad Type</label>
+          <select id="adType"></select>
+        </div>
       </div>
-      <div class="field">
-        <label>Onboarding Month</label>
-        <select id="onboardingMonth"></select>
-      </div>
-      <div class="field">
-        <label>Raised By</label>
-        <input type="text" id="raisedBy" value="Pranav">
-      </div>
-    </div>
 
-    <div class="field">
-      <label>Additional Info</label>
-      <input type="text" id="additionalInfo" placeholder="Optional">
+      <div class="g2 mt">
+        <div class="field">
+          <label>Language</label>
+          <select id="language"></select>
+        </div>
+        <div class="field">
+          <label>Can Take Live?</label>
+          <select id="canLive"></select>
+        </div>
+      </div>
+
+      <hr class="sep">
+
+      <div class="g2">
+        <div class="field">
+          <label>Person Full Name <span class="hint">Instagram auto-fills</span></label>
+          <input type="text" id="person" list="person-list" placeholder="Type to search…" autocomplete="off" oninput="onPersonInput()">
+          <datalist id="person-list"></datalist>
+        </div>
+        <div class="field">
+          <label>Instagram Profile</label>
+          <input type="text" id="instagram" placeholder="Auto-filled on person select">
+        </div>
+      </div>
+
+      <div class="g3 mt">
+        <div class="field">
+          <label>Creator Type</label>
+          <select id="creatorType"></select>
+        </div>
+        <div class="field">
+          <label>Onboarding Month</label>
+          <select id="onboardingMonth"></select>
+        </div>
+        <div class="field">
+          <label>Raised By</label>
+          <input type="text" id="raisedBy" value="Pranav">
+        </div>
+      </div>
+
+      <div class="field mt">
+        <label>Additional Info <span class="hint">optional</span></label>
+        <input type="text" id="additionalInfo" placeholder="Any extra context for this batch…">
+      </div>
     </div>
   </div>
 
-  <!-- Step 3: Cut Details -->
+  <!-- Step 3 -->
   <div class="card" id="cuts-section" style="display:none;">
-    <div class="step3-header">
-      <div class="step3-left">
-        <div class="step-badge" id="badge-3">3</div>
+    <div class="card-hd">
+      <div class="step-badge" id="badge-3">3</div>
+      <div class="card-titles">
         <div class="card-title">Cut Details</div>
-        <div class="card-subtitle" id="cut-count-label"></div>
+        <div class="card-desc">Set creative parameters for each file</div>
       </div>
-      <label class="toggle-wrap">
+      <label class="tog-wrap">
         <input type="checkbox" id="same-for-all" checked onchange="onSameForAllToggle()">
-        <span class="toggle-track"></span>
+        <span class="tog-track"></span>
         <span>Same for all</span>
       </label>
     </div>
+    <div class="card-body">
 
-    <!-- Same for all -->
-    <div id="all-same-panel">
-      <div class="grid2">
-        <div class="field">
-          <label>Funnel</label>
-          <select id="all_funnel"></select>
+      <!-- Same for all -->
+      <div id="all-same-panel">
+        <div class="g2">
+          <div class="field">
+            <label>Funnel</label>
+            <select id="all_funnel"></select>
+          </div>
+          <div class="field">
+            <label>Ratio</label>
+            <div id="all_ratio_wrap"></div>
+          </div>
         </div>
-        <div class="field">
-          <label>Ratio</label>
-          <div id="all_ratio_wrap"></div>
+        <div class="g2 mt">
+          <div class="field">
+            <label>Narrative</label>
+            <div id="all_narrative_wrap"></div>
+          </div>
+          <div class="field">
+            <label>Ad Format</label>
+            <div id="all_adFormat_wrap"></div>
+          </div>
+        </div>
+        <div style="margin-top:16px;">
+          <div class="fl-label">Choose files to be added</div>
+          <div class="file-list" id="sfa-file-list">
+            <div class="file-empty">Load a folder first.</div>
+          </div>
         </div>
       </div>
-      <div class="grid2">
-        <div class="field">
-          <label>Narrative</label>
-          <div id="all_narrative_wrap"></div>
-        </div>
-        <div class="field">
-          <label>Ad Format</label>
-          <div id="all_adFormat_wrap"></div>
-        </div>
-      </div>
-      <div class="field" style="margin-top:6px;">
-        <div class="file-label">Choose files to be added</div>
-        <div class="file-list" id="sfa-file-list">
-          <div class="file-list-placeholder">Load a folder first.</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Per cut -->
-    <div id="per-cut-panel" style="display:none;">
-      <div id="cuts-body"></div>
+      <!-- Per cut -->
+      <div id="per-cut-panel" style="display:none;">
+        <div id="cuts-body"></div>
+      </div>
     </div>
   </div>
 
 </div><!-- /main -->
 
-<!-- Sticky submit bar -->
-<div class="submit-bar" id="submit-bar">
-  <div class="submit-bar-inner">
-    <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>
-      Add to Sheet
-    </button>
+<!-- ── Submit bar ── -->
+<div class="sub-bar" id="submit-bar">
+  <div class="sub-inner">
+    <button class="btn-primary" id="submit-btn" onclick="submitEntries()" disabled>Add to Sheet</button>
+    <div class="sub-meta">
+      <div class="sub-meta-main" id="sub-main">Ready to add</div>
+      <div class="sub-meta-sub"  id="sub-sub"></div>
+    </div>
     <span id="submit-status"></span>
   </div>
 </div>
@@ -443,9 +523,9 @@
     "Cetosomal":    "Advance Regime"
   };
 
-  // ── Init ──────────────────────────────────────────────────
+  // ── Init ─────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
-    document.getElementById("date").value = new Date().toISOString().split("T")[0];
+    document.getElementById("date").value = todayISO();
 
     google.script.run
       .withSuccessHandler(data => {
@@ -457,22 +537,46 @@
         const sel = document.getElementById("tab-name");
         sel.innerHTML = "";
         data.sheetNames.forEach(name => {
-          const opt = document.createElement("option");
-          opt.value = name; opt.textContent = name;
-          sel.appendChild(opt);
+          const o = document.createElement("option");
+          o.value = name; o.textContent = name;
+          sel.appendChild(o);
         });
+
         document.getElementById("load-btn").disabled = false;
         onTabChange();
       })
-      .withFailureHandler(err => showStatus("Failed to load: " + err.message, false))
+      .withFailureHandler(err => showBanner("Failed to load: " + err.message, false))
       .init();
   });
 
   function onTabChange() {
     if (files.length > 0) resetBatch();
-    const tabName = document.getElementById("tab-name").value;
-    const mapped  = TAB_PRODUCT_MAP[tabName];
-    if (mapped) document.getElementById("product").value = mapped;
+    const tab = document.getElementById("tab-name").value;
+
+    // Auto-select product for this tab
+    const mapped = TAB_PRODUCT_MAP[tab];
+    const prodSel = document.getElementById("product");
+    if (mapped && prodSel) {
+      // Exact match first
+      let found = Array.from(prodSel.options).some(o => {
+        if (o.value === mapped) { prodSel.value = mapped; return true; }
+      });
+      // Case-insensitive fallback
+      if (!found) {
+        found = Array.from(prodSel.options).some(o => {
+          if (o.value.toLowerCase() === mapped.toLowerCase()) {
+            prodSel.value = o.value; return true;
+          }
+        });
+      }
+      // Add dynamically if still missing
+      if (!found) {
+        const o = document.createElement("option");
+        o.value = mapped; o.textContent = mapped;
+        prodSel.appendChild(o);
+        prodSel.value = mapped;
+      }
+    }
 
     document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
@@ -480,14 +584,24 @@
         sheetCtx = ctx;
         document.getElementById("sheet-info").textContent =
           `${ctx.totalRows} rows · Next: ${ctx.nextSno}`;
+        updateSubMeta();
       })
       .withFailureHandler(() => {
         document.getElementById("sheet-info").textContent = "⚠ No headers found";
       })
-      .getSheetContext(tabName);
+      .getSheetContext(tab);
   }
 
   function populateDropdowns() {
+    // Product as proper select
+    const prodSel = document.getElementById("product");
+    prodSel.innerHTML = '<option value="">— select product —</option>';
+    (opts.product || []).forEach(v => {
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v;
+      prodSel.appendChild(o);
+    });
+
     fill("intInf",          opts.intInf);
     fill("adType",          opts.adType);
     fill("language",        opts.language);
@@ -496,8 +610,7 @@
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
 
-    fillDatalist("product-list", opts.product || []);
-    fillDatalist("person-list",  opts.person  || []);
+    fillDatalist("person-list", opts.person || []);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
@@ -509,9 +622,9 @@
     if (!el) return;
     el.innerHTML = "";
     (values || []).forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v; opt.textContent = v || "—";
-      el.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v || "—";
+      el.appendChild(o);
     });
   }
 
@@ -520,8 +633,7 @@
     if (!dl) return;
     dl.innerHTML = "";
     (values || []).forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v; dl.appendChild(opt);
+      const o = document.createElement("option"); o.value = v; dl.appendChild(o);
     });
   }
 
@@ -533,52 +645,77 @@
   }
 
   function onPersonInput() {
-    const name = document.getElementById("person").value.trim();
-    const ig   = personMap[name];
+    const ig = personMap[document.getElementById("person").value.trim()];
     if (ig) document.getElementById("instagram").value = ig;
   }
 
-  // ── Load folder ───────────────────────────────────────────
+  // ── Load folder ──────────────────────────────────────────
   function loadFolder() {
     const url = document.getElementById("folder-url").value.trim();
-    if (!url) { setFolderStatus("Paste a Drive folder link first.", false); return; }
+    if (!url) { setFolderMsg("Paste a Drive folder link first.", false); return; }
 
-    setFolderStatus("Loading files…", null);
-    document.getElementById("submit-btn").disabled = true;
+    const btn = document.getElementById("load-btn");
+    btn.textContent = "Loading…"; btn.disabled = true;
+    setFolderMsg("Fetching files…", null);
 
     google.script.run
       .withSuccessHandler(result => {
-        if (!result.ok) { setFolderStatus(result.msg, false); return; }
+        btn.textContent = "Load"; btn.disabled = false;
+        if (!result.ok) { setFolderMsg(result.msg, false); return; }
+
         files = result.files;
-        setFolderStatus(`${files.length} file${files.length !== 1 ? "s" : ""} found`, true);
-        document.getElementById("cut-count-label").textContent = files.length + " files";
-        document.getElementById("step2-card").style.display  = "block";
+        const n = files.length;
+        setFolderMsg(`${n} file${n !== 1 ? "s" : ""} ready`, true);
+
+        document.getElementById("file-count-pill").innerHTML =
+          `<span class="pill pill-green">${n} files</span>`;
+
+        document.getElementById("step2-card").style.display   = "block";
         document.getElementById("cuts-section").style.display = "block";
-        document.getElementById("submit-bar").style.display  = "block";
+        document.getElementById("submit-bar").style.display   = "block";
+
+        document.getElementById("card-1").classList.replace("c-active","c-done");
         document.getElementById("badge-1").classList.add("done");
+        document.getElementById("badge-1").textContent = "✓";
+        document.getElementById("step2-card").classList.add("c-active");
+        document.getElementById("cuts-section").classList.add("c-active");
+        setProg(1,"done"); setProg(2,"active"); setProg(3,"");
+
         buildCutsTable();
         buildSfaFileList();
+        updateSubMeta();
         document.getElementById("submit-btn").disabled = false;
       })
-      .withFailureHandler(err => setFolderStatus("Error: " + err.message, false))
+      .withFailureHandler(err => {
+        btn.textContent = "Load"; btn.disabled = false;
+        setFolderMsg("Error: " + err.message, false);
+      })
       .getFolderFiles(url);
   }
 
-  function setFolderStatus(msg, ok) {
+  function setFolderMsg(msg, ok) {
     const el = document.getElementById("folder-status");
     el.textContent = msg;
     el.className = "folder-msg " + (ok === true ? "msg-ok" : ok === false ? "msg-err" : "msg-info");
   }
 
-  function onSameForAllToggle() {
-    const on = document.getElementById("same-for-all").checked;
-    document.getElementById("all-same-panel").style.display  = on ? "" : "none";
-    document.getElementById("per-cut-panel").style.display   = on ? "none" : "";
+  function setProg(n, state) {
+    const step = document.getElementById("ps" + n);
+    const dot  = document.getElementById("pd" + n);
+    if (!step || !dot) return;
+    step.className  = "prog-step" + (state ? " ps-" + state : "");
+    dot.textContent = state === "done" ? "✓" : String(n);
   }
 
-  // ── Build per-cut cards ───────────────────────────────────
+  function onSameForAllToggle() {
+    const on = document.getElementById("same-for-all").checked;
+    document.getElementById("all-same-panel").style.display = on ? "" : "none";
+    document.getElementById("per-cut-panel").style.display  = on ? "none" : "";
+  }
+
+  // ── Per-cut cards ────────────────────────────────────────
   function buildCutsTable() {
-    const container    = document.getElementById("cuts-body");
+    const container = document.getElementById("cuts-body");
     container.innerHTML = "";
     const defaultRatio = document.getElementById("all_ratio")?.value || (opts.ratio || [])[0];
 
@@ -586,33 +723,34 @@
       const card = document.createElement("div");
       card.className = "cut-card";
 
-      const header = document.createElement("div");
-      header.className = "cut-card-header";
+      const head = document.createElement("div");
+      head.className = "cut-head";
       const chk = document.createElement("input");
       chk.type = "checkbox"; chk.id = "pct_include_" + i; chk.checked = true;
-      const fname = document.createElement("div");
-      fname.className = "cut-filename"; fname.title = f.name; fname.textContent = f.name;
-      header.appendChild(chk); header.appendChild(fname);
-      card.appendChild(header);
+      const num = document.createElement("span");
+      num.className = "cut-num"; num.textContent = String(i+1).padStart(2,"0");
+      const nm = document.createElement("div");
+      nm.className = "cut-name"; nm.title = f.name; nm.textContent = f.name;
+      head.appendChild(chk); head.appendChild(num); head.appendChild(nm);
+      card.appendChild(head);
 
-      const grid = document.createElement("div");
-      grid.className = "cut-fields";
-      grid.appendChild(makeCutField("funnel_"    + i, "Funnel",    opts.funnel));
-      grid.appendChild(makeCutField("ratio_"     + i, "Ratio",     opts.ratio,     false, defaultRatio));
-      grid.appendChild(makeCutField("narrative_" + i, "Narrative", opts.narrative, true,  null, true));
-      grid.appendChild(makeCutField("adFormat_"  + i, "Format",    opts.adFormat,  true,  null, true));
-      card.appendChild(grid);
-
+      const body = document.createElement("div");
+      body.className = "cut-body";
+      body.appendChild(makeCutField("funnel_"    + i, "Funnel",    opts.funnel,    false, null,        false));
+      body.appendChild(makeCutField("ratio_"     + i, "Ratio",     opts.ratio,     false, defaultRatio,false));
+      body.appendChild(makeCutField("narrative_" + i, "Narrative", opts.narrative, true,  null,        true));
+      body.appendChild(makeCutField("adFormat_"  + i, "Format",    opts.adFormat,  true,  null,        true));
+      card.appendChild(body);
       container.appendChild(card);
     });
   }
 
-  function makeCutField(id, labelText, values, allowCustom, defaultVal, fullWidth) {
+  function makeCutField(id, lbl, values, allowCustom, defaultVal, full) {
     const wrap = document.createElement("div");
-    wrap.className = "cut-field" + (fullWidth ? " full" : "");
-    const lbl = document.createElement("label");
-    lbl.textContent = labelText;
-    wrap.appendChild(lbl);
+    wrap.className = "cf" + (full ? " full" : "");
+    const label = document.createElement("label");
+    label.textContent = lbl;
+    wrap.appendChild(label);
     wrap.appendChild(makeSelectField(id, values, allowCustom, defaultVal));
     return wrap;
   }
@@ -622,12 +760,14 @@
     list.innerHTML = "";
     files.forEach((f, i) => {
       const item = document.createElement("label");
-      item.className = "file-list-item";
-      const chk  = document.createElement("input");
+      item.className = "file-item";
+      const chk = document.createElement("input");
       chk.type = "checkbox"; chk.id = "sfa_include_" + i; chk.checked = true;
+      const num = document.createElement("span");
+      num.className = "fi-num"; num.textContent = String(i+1).padStart(2,"0");
       const span = document.createElement("span");
-      span.textContent = f.name; span.title = f.name;
-      item.appendChild(chk); item.appendChild(span);
+      span.className = "fi-name"; span.textContent = f.name; span.title = f.name;
+      item.appendChild(chk); item.appendChild(num); item.appendChild(span);
       list.appendChild(item);
     });
   }
@@ -637,16 +777,16 @@
     const sel  = document.createElement("select");
     sel.id = id;
     (values || []).forEach(v => {
-      const opt = document.createElement("option");
-      opt.value = v; opt.textContent = v || "—";
-      if (defaultVal && v === defaultVal) opt.selected = true;
-      sel.appendChild(opt);
+      const o = document.createElement("option");
+      o.value = v; o.textContent = v || "—";
+      if (defaultVal && v === defaultVal) o.selected = true;
+      sel.appendChild(o);
     });
 
     const inp = document.createElement("input");
     inp.type = "text"; inp.id = id + "_custom";
     inp.placeholder = "Type and press Enter";
-    inp.style.cssText = "display:none;width:100%;height:36px;padding:0 10px;border:1.5px solid #dadce0;border-radius:6px;font-size:13px;font-family:inherit;";
+    inp.style.cssText = "display:none;width:100%;height:34px;padding:0 10px;border:1.5px solid #dadce0;border-radius:6px;font-size:13px;font-family:inherit;";
 
     if (allowCustom) {
       const customOpt = document.createElement("option");
@@ -662,11 +802,11 @@
       const confirm = () => {
         const val = inp.value.trim();
         if (val) {
-          const newOpt = document.createElement("option");
-          newOpt.value = val; newOpt.textContent = val;
-          sel.insertBefore(newOpt, customOpt);
+          const o = document.createElement("option");
+          o.value = val; o.textContent = val;
+          sel.insertBefore(o, customOpt);
           sel.value = val;
-        } else { sel.value = (values || [])[0]; }
+        } else { sel.value = (values || [])[0] || ""; }
         inp.style.display = "none"; sel.style.display = "";
       };
       inp.addEventListener("keydown", e => { if (e.key === "Enter") confirm(); });
@@ -684,7 +824,18 @@
     return sel ? sel.value : "";
   }
 
-  // ── LocalStorage ──────────────────────────────────────────
+  // ── Submit meta ──────────────────────────────────────────
+  function updateSubMeta() {
+    const tab = document.getElementById("tab-name").value;
+    const n   = files.length;
+    if (!n) return;
+    document.getElementById("sub-main").textContent =
+      `Adding ${n} entr${n === 1 ? "y" : "ies"} → ${tab}`;
+    document.getElementById("sub-sub").textContent =
+      sheetCtx.nextSno ? `Starting at S.No. ${sheetCtx.nextSno}` : "";
+  }
+
+  // ── LocalStorage ─────────────────────────────────────────
   function saveToStorage() {
     LS_KEYS.forEach(key => {
       const el = document.getElementById(key);
@@ -701,31 +852,36 @@
     });
   }
 
-  // ── Reset ─────────────────────────────────────────────────
+  // ── Reset ────────────────────────────────────────────────
   function resetBatch() {
     files = [];
-    document.getElementById("folder-url").value          = "";
-    document.getElementById("folder-status").textContent = "";
-    document.getElementById("folder-status").className   = "folder-msg msg-info";
-    document.getElementById("step2-card").style.display  = "none";
+    document.getElementById("folder-url").value           = "";
+    document.getElementById("folder-status").textContent  = "";
+    document.getElementById("folder-status").className    = "folder-msg msg-info";
+    document.getElementById("step2-card").style.display   = "none";
     document.getElementById("cuts-section").style.display = "none";
-    document.getElementById("submit-bar").style.display  = "none";
-    document.getElementById("cuts-body").innerHTML        = "";
-    document.getElementById("sfa-file-list").innerHTML   = '<div class="file-list-placeholder">Load a folder first.</div>';
-    document.getElementById("cut-count-label").textContent = "";
-    document.getElementById("submit-btn").disabled        = true;
-    document.getElementById("status").innerHTML           = "";
+    document.getElementById("submit-bar").style.display   = "none";
+    document.getElementById("cuts-body").innerHTML         = "";
+    document.getElementById("sfa-file-list").innerHTML    = '<div class="file-empty">Load a folder first.</div>';
+    document.getElementById("file-count-pill").innerHTML  = "";
     document.getElementById("badge-1").classList.remove("done");
+    document.getElementById("badge-1").textContent        = "1";
+    document.getElementById("card-1").className           = "card c-active";
+    document.getElementById("step2-card").classList.remove("c-active");
+    document.getElementById("cuts-section").classList.remove("c-active");
+    document.getElementById("submit-btn").disabled         = true;
+    document.getElementById("status").innerHTML            = "";
+    setProg(1,"active"); setProg(2,""); setProg(3,"");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  // ── Submit ────────────────────────────────────────────────
+  // ── Submit ───────────────────────────────────────────────
   function submitEntries() {
-    if (files.length === 0) { showStatus("Load a Drive folder first.", false); return; }
+    if (!files.length) { showBanner("Load a Drive folder first.", false); return; }
 
     const shared = {
       product:         document.getElementById("product").value.trim(),
-      date:            formatDateForSheet(document.getElementById("date").value),
+      date:            fmtDate(document.getElementById("date").value),
       intInf:          document.getElementById("intInf").value,
       adType:          document.getElementById("adType").value,
       language:        document.getElementById("language").value,
@@ -738,7 +894,7 @@
       additionalInfo:  document.getElementById("additionalInfo").value.trim()
     };
 
-    if (!shared.product) { showStatus("Please fill in Product Name.", false); return; }
+    if (!shared.product) { showBanner("Please select a Product Name.", false); return; }
 
     const sameForAll = document.getElementById("same-for-all").checked;
     const cuts = [];
@@ -750,21 +906,22 @@
       cuts.push({
         url:       f.url,
         fileName:  f.name,
-        funnel:    sameForAll ? document.getElementById("all_funnel").value : document.getElementById("funnel_" + i).value,
-        narrative: sameForAll ? getCutFieldValue("all_narrative")           : getCutFieldValue("narrative_" + i),
-        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")            : getCutFieldValue("adFormat_" + i),
-        ratio:     sameForAll ? getCutFieldValue("all_ratio")               : getCutFieldValue("ratio_" + i)
+        funnel:    sameForAll ? document.getElementById("all_funnel").value  : document.getElementById("funnel_" + i).value,
+        narrative: sameForAll ? getCutFieldValue("all_narrative")            : getCutFieldValue("narrative_" + i),
+        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")             : getCutFieldValue("adFormat_" + i),
+        ratio:     sameForAll ? getCutFieldValue("all_ratio")                : getCutFieldValue("ratio_" + i)
       });
     });
 
-    if (cuts.length === 0) { showStatus("No files selected.", false); return; }
+    if (!cuts.length) { showBanner("No files selected.", false); return; }
 
-    document.getElementById("submit-btn").disabled = true;
-    document.getElementById("submit-status").textContent = "Writing to sheet…";
+    const btn = document.getElementById("submit-btn");
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Writing…';
 
     google.script.run
       .withSuccessHandler(result => {
-        document.getElementById("submit-btn").disabled = false;
+        btn.disabled = false; btn.textContent = "Add to Sheet";
         document.getElementById("submit-status").textContent = "";
         if (result.ok) {
           saveToStorage();
@@ -775,16 +932,16 @@
             `${result.totalRows} rows · Next: ${result.nextSno}`;
           document.getElementById("badge-2").classList.add("done");
           document.getElementById("badge-3").classList.add("done");
-          showStatusWithReset(result.msg);
+          setProg(1,"done"); setProg(2,"done"); setProg(3,"done");
+          showBannerWithReset(result.msg);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
-          showStatus(result.msg, false);
+          showBanner(result.msg, false);
         }
       })
       .withFailureHandler(err => {
-        document.getElementById("submit-btn").disabled = false;
-        document.getElementById("submit-status").textContent = "";
-        showStatus("Error: " + err.message, false);
+        btn.disabled = false; btn.textContent = "Add to Sheet";
+        showBanner("Error: " + err.message, false);
       })
       .addEntries({
         tabName:          document.getElementById("tab-name").value,
@@ -795,35 +952,41 @@
         totalRows:        sheetCtx.totalRows,
         adNameFormula:    sheetCtx.adNameFormula,
         adNameFormulaRow: sheetCtx.adNameFormulaRow,
-        shared,
-        cuts
+        shared, cuts
       });
   }
 
-  function showStatus(msg, ok) {
-    const el  = document.getElementById("status");
+  // ── Banners ──────────────────────────────────────────────
+  function showBanner(msg, ok) {
     const div = document.createElement("div");
-    div.className = ok ? "status-ok" : "status-err";
+    div.className = "banner " + (ok ? "banner-ok" : "banner-err");
     div.textContent = msg;
+    const el = document.getElementById("status");
     el.innerHTML = ""; el.appendChild(div);
   }
 
-  function showStatusWithReset(msg) {
-    const el  = document.getElementById("status");
+  function showBannerWithReset(msg) {
     const div = document.createElement("div");
-    div.className = "status-ok";
-    const txt = document.createElement("span");
-    txt.textContent = msg;
+    div.className = "banner banner-ok";
+    const txt = document.createElement("span"); txt.textContent = msg;
     const btn = document.createElement("button");
-    btn.className = "btn-link"; btn.textContent = "New batch"; btn.onclick = resetBatch;
+    btn.className = "btn-link";
+    btn.style.cssText = "color:var(--green);";
+    btn.textContent = "New batch →"; btn.onclick = resetBatch;
     div.appendChild(txt); div.appendChild(btn);
+    const el = document.getElementById("status");
     el.innerHTML = ""; el.appendChild(div);
   }
 
-  function formatDateForSheet(isoDate) {
-    if (!isoDate) return "";
-    const [y, m, d] = isoDate.split("-");
+  // ── Helpers ──────────────────────────────────────────────
+  function fmtDate(iso) {
+    if (!iso) return "";
+    const [y, m, d] = iso.split("-");
     return `${d}/${m}/${y}`;
+  }
+
+  function todayISO() {
+    return new Date().toISOString().split("T")[0];
   }
 </script>
 </body>
