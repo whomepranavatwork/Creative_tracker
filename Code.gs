@@ -71,7 +71,7 @@ function init() {
                         "March'26", "April'26", "May'26", "June'26"],
       live:            ["No", "Yes"],
       canLive:         ["Yes", "No"],
-      ratio:           ["9:16", "4:5"]
+      ratio:           ["9:16", "4:5", "Both"]
     }
   };
 }
@@ -206,8 +206,8 @@ function addEntries(payload) {
       set(row, colIndex.date,            shared.date || today);
       set(row, colIndex.product,         shared.product);
       // adName: leave blank — formula in sheet handles it
-      set(row, colIndex.drive45,         cut.ratio === "4:5"  ? cut.url : "");
-      set(row, colIndex.drive916,        cut.ratio === "9:16" ? cut.url : "");
+      set(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
+      set(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
       set(row, colIndex.live,            shared.live    || "No");
       set(row, colIndex.canLive,         shared.canLive || "Yes");
       set(row, colIndex.raisedBy,        shared.raisedBy || "Pranav");

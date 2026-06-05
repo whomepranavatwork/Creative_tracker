@@ -16,29 +16,23 @@
 
   input[type=text], input[type=date], select, textarea {
     width: 100%; padding: 6px 8px; border: 1px solid #dadce0;
-    border-radius: 4px; font-size: 13px; color: #202124;
-    background: #fff;
+    border-radius: 4px; font-size: 13px; color: #202124; background: #fff;
   }
-  input:focus, select:focus, textarea:focus {
-    outline: none; border-color: #1a73e8;
-  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #1a73e8; }
   textarea { resize: vertical; min-height: 52px; }
 
   .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
 
   .folder-row { display: flex; gap: 6px; }
   .folder-row input { flex: 1; }
 
-  button {
-    padding: 7px 14px; border: none; border-radius: 4px;
-    font-size: 13px; cursor: pointer;
-  }
+  button { padding: 7px 14px; border: none; border-radius: 4px; font-size: 13px; cursor: pointer; }
   .btn-primary { background: #1a73e8; color: #fff; }
   .btn-primary:hover { background: #1557b0; }
   .btn-primary:disabled { background: #9aa0a6; cursor: not-allowed; }
   .btn-secondary { background: #f1f3f4; color: #202124; }
   .btn-secondary:hover { background: #e8eaed; }
+  .btn-link { background: none; color: #1a73e8; padding: 0; font-size: 12px; text-decoration: underline; cursor: pointer; border: none; white-space: nowrap; }
 
   #status { padding: 8px 14px; font-size: 12px; }
   .status-ok  { color: #188038; background: #e6f4ea; border-radius: 4px; padding: 8px; }
@@ -52,16 +46,28 @@
     background: #f1f3f4; font-size: 11px; font-weight: 600;
     padding: 5px 6px; text-align: left; border: 1px solid #e0e0e0;
   }
-  .cuts-table td { padding: 4px 4px; border: 1px solid #e0e0e0; vertical-align: middle; }
+  .cuts-table td { padding: 4px; border: 1px solid #e0e0e0; vertical-align: middle; }
   .cuts-table td.fname {
-    font-size: 11px; color: #5f6368; max-width: 90px;
+    font-size: 11px; color: #5f6368; max-width: 80px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .cuts-table td.chk { width: 24px; text-align: center; }
   .cuts-table select { padding: 3px 4px; font-size: 12px; }
 
-  .footer { padding: 12px 14px; display: flex; gap: 8px; align-items: center; }
+  /* File list for same-for-all */
+  .file-list { margin-top: 6px; max-height: 130px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; }
+  .file-list label {
+    display: flex; align-items: center; gap: 6px; padding: 4px 8px;
+    margin: 0; font-size: 12px; color: #202124;
+    border-bottom: 1px solid #f0f0f0; cursor: pointer;
+  }
+  .file-list label:last-child { border-bottom: none; }
+  .file-list label:hover { background: #f8f9fa; }
+  .file-list input[type=checkbox] { width: auto; flex-shrink: 0; }
+  .file-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .sheet-info { font-size: 11px; color: #9aa0a6; padding: 4px 14px 0; }
+  .footer { padding: 12px 14px; display: flex; gap: 8px; align-items: center; }
+  .sheet-info { font-size: 11px; color: #9aa0a6; padding: 4px 0 0; }
 </style>
 </head>
 <body>
@@ -72,7 +78,7 @@
   <select id="tab-name" onchange="onTabChange()" style="width:100%;font-weight:600;">
     <option value="">Loading tabs…</option>
   </select>
-  <div class="sheet-info" id="sheet-info" style="padding:4px 0 0;"></div>
+  <div class="sheet-info" id="sheet-info"></div>
 </div>
 
 <!-- Step 1: Folder -->
@@ -88,7 +94,7 @@
 
 <!-- Step 2: Shared fields -->
 <div class="section">
-  <h3>Step 2 — Shared Fields (same for all cuts)</h3>
+  <h3>Step 2 — Shared Fields</h3>
 
   <div class="row2">
     <div>
@@ -112,16 +118,8 @@
     </div>
   </div>
 
-  <div class="row2">
-    <div>
-      <label>Language</label>
-      <select id="language"></select>
-    </div>
-    <div>
-      <label>Default Ratio</label>
-      <select id="defaultRatio"></select>
-    </div>
-  </div>
+  <label>Language</label>
+  <select id="language"></select>
 
   <label>Person Full Name</label>
   <input type="text" id="person" placeholder="e.g. Bhuvan Mehta  (leave blank for None)">
@@ -182,7 +180,7 @@
       </div>
       <div>
         <label>Ratio</label>
-        <select id="all_ratio"></select>
+        <div id="all_ratio_wrap"></div>
       </div>
     </div>
     <div class="row2">
@@ -195,17 +193,19 @@
         <div id="all_adFormat_wrap"></div>
       </div>
     </div>
+    <label style="margin-top:10px;">Files to include</label>
+    <div class="file-list" id="sfa-file-list">
+      <div style="padding:8px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>
+    </div>
   </div>
 
   <!-- Shown when "Same for all" is OFF -->
   <div id="per-cut-panel" style="display:none;">
-    <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">
-      Set Funnel, Narrative and Format for each cut.
-    </p>
     <div style="overflow-x:auto;">
       <table class="cuts-table" id="cuts-table">
         <thead>
           <tr>
+            <th class="chk">✓</th>
             <th>File</th>
             <th>Funnel</th>
             <th>Narrative</th>
@@ -232,17 +232,19 @@
 <script>
   let opts = {};
   let files = [];
-  let sheetCtx = {};  // cached: colIndex, headerRow, lastDataRow, nextSno
+  let sheetCtx = {};
+
+  const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
   // ── Init ──────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("date").value = new Date().toISOString().split("T")[0];
 
-    // Single call replaces getDropdownOptions + getSheetNames (saves one round trip)
     google.script.run
       .withSuccessHandler(data => {
         opts = data.dropdownOptions;
         populateDropdowns();
+        restoreFromStorage();
 
         const sel = document.getElementById("tab-name");
         sel.innerHTML = "";
@@ -251,7 +253,7 @@
           opt.value = name; opt.textContent = name;
           sel.appendChild(opt);
         });
-        document.getElementById("load-btn").disabled = false; // safe to load now
+        document.getElementById("load-btn").disabled = false;
         onTabChange();
       })
       .withFailureHandler(err => showStatus("Failed to load: " + err.message, false))
@@ -259,17 +261,18 @@
   });
 
   function onTabChange() {
+    if (files.length > 0) resetBatch();
+
     const tabName = document.getElementById("tab-name").value;
     document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
       .withSuccessHandler(ctx => {
-        sheetCtx = ctx;  // cache colIndex, headerRow, lastDataRow, nextSno
+        sheetCtx = ctx;
         document.getElementById("sheet-info").textContent =
           `${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
       })
       .withFailureHandler(() => {
-        document.getElementById("sheet-info").textContent =
-          "⚠ No tracker headers found on this tab.";
+        document.getElementById("sheet-info").textContent = "⚠ No tracker headers found on this tab.";
       })
       .getSheetContext(tabName);
   }
@@ -282,20 +285,30 @@
     fill("onboardingMonth", opts.onboardingMonth);
     fill("live",            opts.live);
     fill("canLive",         opts.canLive);
-    fill("defaultRatio",    opts.ratio);
     fill("all_funnel",      opts.funnel);
-    fill("all_ratio",       opts.ratio);
-    // Narrative and Format use makeSelectCell — built in buildCutsTable
+
+    // Build "same for all" selects — available before any folder is loaded
+    buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
+    buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
+    buildSelectInDiv("all_adFormat_wrap",  "all_adFormat",  opts.adFormat,  true);
   }
 
   function fill(id, values) {
     const el = document.getElementById(id);
+    if (!el) return;
     el.innerHTML = "";
     values.forEach(v => {
       const opt = document.createElement("option");
       opt.value = v; opt.textContent = v || "—";
       el.appendChild(opt);
     });
+  }
+
+  function buildSelectInDiv(wrapId, selId, values, allowCustom, defaultVal) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    wrap.appendChild(makeSelectField(selId, values, allowCustom, defaultVal));
   }
 
   // ── Load folder ───────────────────────────────────────────
@@ -311,9 +324,10 @@
         if (!result.ok) { setFolderStatus(result.msg, false); return; }
         files = result.files;
         setFolderStatus(`Found ${files.length} file${files.length !== 1 ? "s" : ""}.`, true);
+        document.getElementById("cut-count").textContent = files.length;
         document.getElementById("cuts-section").style.display = "block";
         buildCutsTable();
-        document.getElementById("cut-count").textContent = files.length;
+        buildSfaFileList();
         document.getElementById("submit-btn").disabled = false;
       })
       .withFailureHandler(err => setFolderStatus("Error: " + err.message, false))
@@ -328,57 +342,65 @@
 
   function onSameForAllToggle() {
     const on = document.getElementById("same-for-all").checked;
-    document.getElementById("all-same-panel").style.display  = on ? "" : "none";
-    document.getElementById("per-cut-panel").style.display   = on ? "none" : "";
+    document.getElementById("all-same-panel").style.display = on ? "" : "none";
+    document.getElementById("per-cut-panel").style.display  = on ? "none" : "";
   }
 
   // ── Build per-cut table ───────────────────────────────────
   function buildCutsTable() {
-    // Populate the "same for all" custom-select fields
-    const narrativeWrap = document.getElementById("all_narrative_wrap");
-    const adFormatWrap  = document.getElementById("all_adFormat_wrap");
-    narrativeWrap.innerHTML = "";
-    adFormatWrap.innerHTML  = "";
-    const narrativeTd = makeSelectCell("all_narrative", opts.narrative, true);
-    const adFormatTd  = makeSelectCell("all_adFormat",  opts.adFormat,  true);
-    narrativeWrap.appendChild(narrativeTd);
-    adFormatWrap.appendChild(adFormatTd);
-
     const tbody = document.getElementById("cuts-body");
     tbody.innerHTML = "";
-    const defaultRatio = document.getElementById("defaultRatio").value;
+    const defaultRatio = document.getElementById("all_ratio")?.value || opts.ratio[0];
 
     files.forEach((f, i) => {
       const tr = document.createElement("tr");
 
-      // File name cell
+      const tdChk = document.createElement("td");
+      tdChk.className = "chk";
+      const chk = document.createElement("input");
+      chk.type = "checkbox"; chk.id = "pct_include_" + i; chk.checked = true;
+      chk.style.cssText = "width:auto;";
+      tdChk.appendChild(chk);
+      tr.appendChild(tdChk);
+
       const tdName = document.createElement("td");
       tdName.className = "fname";
       tdName.title = f.name;
       tdName.textContent = f.name;
       tr.appendChild(tdName);
 
-      // Funnel
-      tr.appendChild(makeSelectCell("funnel_" + i, opts.funnel));
-
-      // Narrative (with custom option)
+      tr.appendChild(makeSelectCell("funnel_"    + i, opts.funnel));
       tr.appendChild(makeSelectCell("narrative_" + i, opts.narrative, true));
-
-      // Ad Format (with custom option)
-      tr.appendChild(makeSelectCell("adFormat_" + i, opts.adFormat, true));
-
-      // Ratio
-      tr.appendChild(makeSelectCell("ratio_" + i, opts.ratio, false, defaultRatio));
+      tr.appendChild(makeSelectCell("adFormat_"  + i, opts.adFormat,  true));
+      tr.appendChild(makeSelectCell("ratio_"     + i, opts.ratio, false, defaultRatio));
 
       tbody.appendChild(tr);
     });
   }
 
-  function makeSelectCell(id, values, allowCustom, defaultVal) {
-    const td = document.createElement("td");
+  // File checklist for "same for all" mode
+  function buildSfaFileList() {
+    const list = document.getElementById("sfa-file-list");
+    list.innerHTML = "";
+    files.forEach((f, i) => {
+      const lbl = document.createElement("label");
+      const chk = document.createElement("input");
+      chk.type = "checkbox"; chk.id = "sfa_include_" + i; chk.checked = true;
+      const span = document.createElement("span");
+      span.textContent = f.name;
+      span.title = f.name;
+      lbl.appendChild(chk);
+      lbl.appendChild(span);
+      list.appendChild(lbl);
+    });
+  }
 
-    const sel = document.createElement("select");
+  // Returns a <div> with a select (+ optional custom input)
+  function makeSelectField(id, values, allowCustom, defaultVal) {
+    const wrap = document.createElement("div");
+    const sel  = document.createElement("select");
     sel.id = id;
+
     values.forEach(v => {
       const opt = document.createElement("option");
       opt.value = v; opt.textContent = v || "—";
@@ -386,8 +408,6 @@
       sel.appendChild(opt);
     });
 
-    // Inline text input shown when "Other…" is chosen
-    // (prompt() is blocked in Apps Script sandboxed iframes)
     const inp = document.createElement("input");
     inp.type = "text";
     inp.id = id + "_custom";
@@ -407,7 +427,6 @@
         }
       });
 
-      // Pressing Enter or leaving the field confirms the custom value
       const confirmCustom = () => {
         const val = inp.value.trim();
         if (val) {
@@ -425,16 +444,55 @@
       inp.addEventListener("blur", confirmCustom);
     }
 
-    td.appendChild(sel);
-    td.appendChild(inp);
+    wrap.appendChild(sel);
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  // Returns a <td> wrapping a select field (for the per-cut table)
+  function makeSelectCell(id, values, allowCustom, defaultVal) {
+    const td = document.createElement("td");
+    td.appendChild(makeSelectField(id, values, allowCustom, defaultVal));
     return td;
   }
 
-  // Reads the correct value whether the custom input or the select is active
   function getCutFieldValue(id) {
     const inp = document.getElementById(id + "_custom");
     if (inp && inp.style.display !== "none") return inp.value.trim();
-    return document.getElementById(id).value;
+    const sel = document.getElementById(id);
+    return sel ? sel.value : "";
+  }
+
+  // ── LocalStorage ──────────────────────────────────────────
+  function saveToStorage() {
+    LS_KEYS.forEach(key => {
+      const el = document.getElementById(key);
+      if (el) localStorage.setItem("ct_" + key, el.value);
+    });
+  }
+
+  function restoreFromStorage() {
+    LS_KEYS.forEach(key => {
+      const val = localStorage.getItem("ct_" + key);
+      if (val === null) return;
+      const el = document.getElementById(key);
+      if (el) el.value = val;
+    });
+  }
+
+  // ── Reset batch ───────────────────────────────────────────
+  function resetBatch() {
+    files = [];
+    document.getElementById("folder-url").value       = "";
+    document.getElementById("folder-status").textContent = "";
+    document.getElementById("folder-status").className   = "status-info";
+    document.getElementById("cuts-section").style.display = "none";
+    document.getElementById("cuts-body").innerHTML        = "";
+    document.getElementById("sfa-file-list").innerHTML    =
+      '<div style="padding:8px;font-size:12px;color:#9aa0a6;">Load a folder first.</div>';
+    document.getElementById("cut-count").textContent = "0";
+    document.getElementById("submit-btn").disabled   = true;
+    document.getElementById("status").innerHTML      = "";
   }
 
   // ── Submit ────────────────────────────────────────────────
@@ -449,7 +507,7 @@
       language:        document.getElementById("language").value,
       person:          document.getElementById("person").value.trim(),
       creatorType:     document.getElementById("creatorType").value,
-      onboardingMonth: document.getElementById("onboardingMonth").value.trim(),
+      onboardingMonth: document.getElementById("onboardingMonth").value,
       instagram:       document.getElementById("instagram").value.trim(),
       live:            document.getElementById("live").value,
       canLive:         document.getElementById("canLive").value,
@@ -460,14 +518,23 @@
     if (!shared.product) { showStatus("Please fill in Product Name.", false); return; }
 
     const sameForAll = document.getElementById("same-for-all").checked;
-    const cuts = files.map((f, i) => ({
-      url:       f.url,
-      fileName:  f.name,
-      funnel:    sameForAll ? document.getElementById("all_funnel").value    : document.getElementById("funnel_" + i).value,
-      narrative: sameForAll ? getCutFieldValue("all_narrative")              : getCutFieldValue("narrative_" + i),
-      adFormat:  sameForAll ? getCutFieldValue("all_adFormat")               : getCutFieldValue("adFormat_" + i),
-      ratio:     sameForAll ? document.getElementById("all_ratio").value     : document.getElementById("ratio_" + i).value
-    }));
+    const cuts = [];
+    files.forEach((f, i) => {
+      const included = sameForAll
+        ? (document.getElementById("sfa_include_" + i)?.checked !== false)
+        : (document.getElementById("pct_include_" + i)?.checked !== false);
+      if (!included) return;
+      cuts.push({
+        url:       f.url,
+        fileName:  f.name,
+        funnel:    sameForAll ? document.getElementById("all_funnel").value : document.getElementById("funnel_" + i).value,
+        narrative: sameForAll ? getCutFieldValue("all_narrative")           : getCutFieldValue("narrative_" + i),
+        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")            : getCutFieldValue("adFormat_" + i),
+        ratio:     sameForAll ? getCutFieldValue("all_ratio")               : getCutFieldValue("ratio_" + i)
+      });
+    });
+
+    if (cuts.length === 0) { showStatus("No files selected to add.", false); return; }
 
     document.getElementById("submit-btn").disabled = true;
     document.getElementById("submit-status").textContent = "Writing to sheet…";
@@ -476,14 +543,16 @@
       .withSuccessHandler(result => {
         document.getElementById("submit-btn").disabled = false;
         document.getElementById("submit-status").textContent = "";
-        showStatus(result.msg, result.ok);
         if (result.ok) {
-          // Update cache and banner from returned values — no extra server call needed
+          saveToStorage();
           sheetCtx.nextSno     = result.nextSno;
           sheetCtx.lastDataRow = result.lastDataRow;
           sheetCtx.totalRows   = result.totalRows;
           document.getElementById("sheet-info").textContent =
             `${result.totalRows} existing rows · Next S.No.: ${result.nextSno}`;
+          showStatusWithReset(result.msg);
+        } else {
+          showStatus(result.msg, false);
         }
       })
       .withFailureHandler(err => {
@@ -492,12 +561,12 @@
         showStatus("Error: " + err.message, false);
       })
       .addEntries({
-        tabName:       document.getElementById("tab-name").value,
-        colIndex:      sheetCtx.colIndex,
-        headerRow:     sheetCtx.headerRow,
-        lastDataRow:   sheetCtx.lastDataRow,
-        nextSno:       sheetCtx.nextSno,
-        totalRows:     sheetCtx.totalRows,
+        tabName:          document.getElementById("tab-name").value,
+        colIndex:         sheetCtx.colIndex,
+        headerRow:        sheetCtx.headerRow,
+        lastDataRow:      sheetCtx.lastDataRow,
+        nextSno:          sheetCtx.nextSno,
+        totalRows:        sheetCtx.totalRows,
         adNameFormula:    sheetCtx.adNameFormula,
         adNameFormulaRow: sheetCtx.adNameFormulaRow,
         shared,
@@ -506,12 +575,33 @@
   }
 
   function showStatus(msg, ok) {
-    const el = document.getElementById("status");
-    el.innerHTML = `<div class="${ok ? 'status-ok' : 'status-err'}" style="margin:8px 14px;">${msg}</div>`;
+    const el  = document.getElementById("status");
+    const div = document.createElement("div");
+    div.className = ok ? "status-ok" : "status-err";
+    div.style.cssText = "margin:8px 14px;";
+    div.textContent = msg;
+    el.innerHTML = "";
+    el.appendChild(div);
+  }
+
+  function showStatusWithReset(msg) {
+    const el  = document.getElementById("status");
+    const div = document.createElement("div");
+    div.className = "status-ok";
+    div.style.cssText = "margin:8px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;";
+    const txt = document.createElement("span");
+    txt.textContent = msg;
+    const btn = document.createElement("button");
+    btn.className = "btn-link";
+    btn.textContent = "New batch";
+    btn.onclick = resetBatch;
+    div.appendChild(txt);
+    div.appendChild(btn);
+    el.innerHTML = "";
+    el.appendChild(div);
   }
 
   function formatDateForSheet(isoDate) {
-    // Convert YYYY-MM-DD to DD/MM/YYYY for the sheet
     if (!isoDate) return "";
     const [y, m, d] = isoDate.split("-");
     return `${d}/${m}/${y}`;
