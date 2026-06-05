@@ -2,7 +2,7 @@
 // Creative Tracker — Bulk Entry Automation
 // ============================================================
 
-const FORCE_SHEET_NAME   = "";   // e.g. "Cetosomal" — leave blank for active sheet
+const FORCE_SHEET_NAME   = "";   // leave blank — user picks tab in sidebar
 const HEADER_SEARCH_LIMIT = 20;
 
 // Header text must match your sheet exactly (case-sensitive)
@@ -49,8 +49,14 @@ function showSidebar() {
 }
 
 // ── Called by sidebar on load ─────────────────────────────────
-function getSheetContext() {
-  const { sheet, colIndex, headerRow } = resolveSheet();
+function getSheetNames() {
+  return SpreadsheetApp.getActiveSpreadsheet()
+    .getSheets()
+    .map(s => s.getName());
+}
+
+function getSheetContext(tabName) {
+  const { sheet, colIndex, headerRow } = resolveSheet(tabName);
   const nextSno = getNextSerialNumber(sheet, colIndex.sno, headerRow);
   const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
   return {
@@ -92,7 +98,7 @@ function getFolderFiles(folderUrl) {
 // ── Called by sidebar: writes rows to the sheet ───────────────
 function addEntries(payload) {
   try {
-    const { sheet, colIndex, headerRow } = resolveSheet();
+    const { sheet, colIndex, headerRow } = resolveSheet(payload.tabName);
     const lastCol     = sheet.getLastColumn();
     const today       = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
     const nextSno     = getNextSerialNumber(sheet, colIndex.sno, headerRow);
@@ -164,12 +170,11 @@ function addEntries(payload) {
 }
 
 // ── Sheet resolution ──────────────────────────────────────────
-function resolveSheet() {
-  const ss    = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = FORCE_SHEET_NAME
-    ? ss.getSheetByName(FORCE_SHEET_NAME)
-    : ss.getActiveSheet();
-  if (!sheet) throw new Error("Sheet \"" + FORCE_SHEET_NAME + "\" not found.");
+function resolveSheet(tabName) {
+  const ss   = SpreadsheetApp.getActiveSpreadsheet();
+  const name = tabName || FORCE_SHEET_NAME;
+  const sheet = name ? ss.getSheetByName(name) : ss.getActiveSheet();
+  if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
 
   const { headerRow, colIndex } = detectHeaders(sheet);
   return { sheet, headerRow, colIndex };

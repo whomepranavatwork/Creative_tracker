@@ -66,8 +66,14 @@
 </head>
 <body>
 
-<!-- Sheet context banner -->
-<div class="sheet-info" id="sheet-info">Loading sheet info…</div>
+<!-- Tab selector -->
+<div class="section" style="background:#f8f9fa;">
+  <h3>Sheet Tab</h3>
+  <select id="tab-name" onchange="onTabChange()" style="width:100%;font-weight:600;">
+    <option value="">Loading tabs…</option>
+  </select>
+  <div class="sheet-info" id="sheet-info" style="padding:4px 0 0;"></div>
+</div>
 
 <!-- Step 1: Folder -->
 <div class="section">
@@ -195,27 +201,47 @@
 
   // ── Init ──────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
-    // Set today's date
-    const today = new Date();
-    const iso = today.toISOString().split("T")[0];
-    document.getElementById("date").value = iso;
+    document.getElementById("date").value = new Date().toISOString().split("T")[0];
 
-    // Load dropdowns and sheet context in parallel
+    // Load dropdown options
     google.script.run
       .withSuccessHandler(o => { opts = o; populateDropdowns(); })
       .withFailureHandler(err => showStatus("Failed to load options: " + err.message, false))
       .getDropdownOptions();
 
+    // Load sheet tab names
+    google.script.run
+      .withSuccessHandler(names => {
+        const sel = document.getElementById("tab-name");
+        sel.innerHTML = "";
+        names.forEach(name => {
+          const opt = document.createElement("option");
+          opt.value = name; opt.textContent = name;
+          sel.appendChild(opt);
+        });
+        // Auto-select first tab and load its context
+        onTabChange();
+      })
+      .withFailureHandler(() => {
+        document.getElementById("sheet-info").textContent = "Could not load sheet tabs.";
+      })
+      .getSheetNames();
+  });
+
+  function onTabChange() {
+    const tabName = document.getElementById("tab-name").value;
+    document.getElementById("sheet-info").textContent = "Loading…";
     google.script.run
       .withSuccessHandler(ctx => {
         document.getElementById("sheet-info").textContent =
-          `Sheet: "${ctx.sheetName}" · ${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
+          `${ctx.totalRows} existing rows · Next S.No.: ${ctx.nextSno}`;
       })
-      .withFailureHandler(() => {
-        document.getElementById("sheet-info").textContent = "Could not read sheet info.";
+      .withFailureHandler(err => {
+        document.getElementById("sheet-info").textContent =
+          "⚠ No tracker headers found on this tab.";
       })
-      .getSheetContext();
-  });
+      .getSheetContext(tabName);
+  }
 
   function populateDropdowns() {
     fill("intInf",          opts.intInf);
@@ -388,7 +414,7 @@
         document.getElementById("submit-status").textContent = "";
         showStatus("Error: " + err.message, false);
       })
-      .addEntries({ shared, cuts });
+      .addEntries({ tabName: document.getElementById("tab-name").value, shared, cuts });
   }
 
   function showStatus(msg, ok) {
