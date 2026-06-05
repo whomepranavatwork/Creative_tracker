@@ -99,7 +99,8 @@
   <div class="row2">
     <div>
       <label>Product Name</label>
-      <input type="text" id="product" placeholder="e.g. Advance Regime">
+      <input type="text" id="product" list="product-list" placeholder="Search product…" autocomplete="off">
+      <datalist id="product-list"></datalist>
     </div>
     <div>
       <label>Date Added</label>
@@ -122,7 +123,8 @@
   <select id="language"></select>
 
   <label>Person Full Name</label>
-  <input type="text" id="person" placeholder="e.g. Bhuvan Mehta  (leave blank for None)">
+  <input type="text" id="person" list="person-list" placeholder="Search name… (blank = None)" autocomplete="off" oninput="onPersonInput()">
+  <datalist id="person-list"></datalist>
 
   <div class="row2">
     <div>
@@ -233,6 +235,7 @@
   let opts = {};
   let files = [];
   let sheetCtx = {};
+  let personMap = {};  // name → instagram URL
 
   const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
@@ -243,6 +246,7 @@
     google.script.run
       .withSuccessHandler(data => {
         opts = data.dropdownOptions;
+        personMap = data.personMap || {};
         populateDropdowns();
         restoreFromStorage();
 
@@ -287,10 +291,30 @@
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
 
+    fillDatalist("product-list", opts.product || []);
+    fillDatalist("person-list",  opts.person  || []);
+
     // Build "same for all" selects — available before any folder is loaded
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
     buildSelectInDiv("all_adFormat_wrap",  "all_adFormat",  opts.adFormat,  true);
+  }
+
+  function fillDatalist(id, values) {
+    const dl = document.getElementById(id);
+    if (!dl) return;
+    dl.innerHTML = "";
+    values.forEach(v => {
+      const opt = document.createElement("option");
+      opt.value = v;
+      dl.appendChild(opt);
+    });
+  }
+
+  function onPersonInput() {
+    const name = document.getElementById("person").value.trim();
+    const ig   = personMap[name];
+    if (ig) document.getElementById("instagram").value = ig;
   }
 
   function fill(id, values) {

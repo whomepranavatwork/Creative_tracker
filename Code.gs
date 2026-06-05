@@ -53,15 +53,21 @@ function init() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheetNames = ss.getSheets().map(s => s.getName());
 
+  // Read Buckets tab for dynamic dropdown values
+  const buckets = readBuckets(ss);
+
   return {
     sheetNames,
+    personMap: buckets.personMap,
     dropdownOptions: {
-      funnel:          ["BOF", "MOF", "TOF"],
-      intInf:          ["Inf", "Int", "Hair Warriors"],
-      adType:          ["Reel", "Static", "Carousel"],
-      language:        ["Hinglish", "English", "Hindi"],
-      adFormat:        ["Educational", "Non Vo", "Statics", "Testimonial",
-                        "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
+      product:         buckets.product,
+      funnel:          buckets.funnel.length   ? buckets.funnel   : ["BOF", "MOF", "TOF"],
+      intInf:          buckets.intInf.length   ? buckets.intInf   : ["Inf", "Int", "Hair Warriors"],
+      adType:          buckets.adType.length   ? buckets.adType   : ["Reel", "Static", "Carousel"],
+      language:        buckets.language.length ? buckets.language : ["Hinglish", "English", "Hindi"],
+      adFormat:        buckets.adFormat.length ? buckets.adFormat : ["Educational", "Non Vo", "Statics",
+                         "Testimonial", "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
+      person:          ["None", ...buckets.person],
       narrative:       ["Problem-Solution", "Results/Assurance", "Myth Busting",
                         "Trust", "Features", "Why MM is different", "Safety",
                         "Science", "BeforeAfter", "Transplant or PRP",
@@ -74,6 +80,35 @@ function init() {
       ratio:           ["9:16", "4:5", "Both"]
     }
   };
+}
+
+function readBuckets(ss) {
+  const result = { product: [], funnel: [], intInf: [], adType: [], language: [], adFormat: [], person: [], personMap: {} };
+  const sheet = ss.getSheetByName("Buckets");
+  if (!sheet) return result;
+
+  // Columns (0-indexed): A=product, B=funnel, C=intInf, D=adType, E=language, F=adFormat, H=person, I=instagram
+  const data = sheet.getDataRange().getValues();
+  const seen = { product: new Set(), funnel: new Set(), intInf: new Set(), adType: new Set(), language: new Set(), adFormat: new Set(), person: new Set() };
+
+  data.slice(1).forEach(row => {
+    const add = (key, col) => {
+      const v = String(row[col] || "").trim();
+      if (v && !seen[key].has(v)) { seen[key].add(v); result[key].push(v); }
+    };
+    add("product",  0);
+    add("funnel",   1);
+    add("intInf",   2);
+    add("adType",   3);
+    add("language", 4);
+    add("adFormat", 5);
+    add("person",   7);
+    const person = String(row[7] || "").trim();
+    const ig     = String(row[8] || "").trim();
+    if (person && ig) result.personMap[person] = ig;
+  });
+
+  return result;
 }
 
 // ── Called when user picks a tab ──────────────────────────────
