@@ -239,19 +239,23 @@ function addEntries(payload) {
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
     // Copy Ad Name formula from the row where we actually found it
-    // (adNameFormulaRow). copyFrom adjusts relative references automatically,
+    // (adNameFormulaRow). copyTo adjusts relative references automatically,
     // so it doesn't matter if the source is a template row far below lastDataRow.
     if (colIndex.adName != null && payload.adNameFormulaRow) {
       const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
-      sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1)
-        .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+      srcCell.copyTo(
+        sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
+        SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
+      );
     }
 
     if (colIndex.ytAdName != null && payload.adNameFormulaRow) {
       const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.ytAdName + 1);
       if (srcCell.getFormula()) {
-        sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1)
-          .copyFrom(srcCell, SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false);
+        srcCell.copyTo(
+          sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
+          SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
+        );
       }
     }
 
