@@ -127,7 +127,7 @@
     </div>
     <div>
       <label>Onboarding Month</label>
-      <input type="text" id="onboardingMonth" placeholder="e.g. Feb'26">
+      <select id="onboardingMonth"></select>
     </div>
   </div>
 
@@ -218,13 +218,14 @@
   });
 
   function populateDropdowns() {
-    fill("intInf",      opts.intInf);
-    fill("adType",      opts.adType);
-    fill("language",    opts.language);
-    fill("creatorType", opts.creatorType);
-    fill("live",        opts.live);
-    fill("canLive",     opts.canLive);
-    fill("defaultRatio",opts.ratio);
+    fill("intInf",          opts.intInf);
+    fill("adType",          opts.adType);
+    fill("language",        opts.language);
+    fill("creatorType",     opts.creatorType);
+    fill("onboardingMonth", opts.onboardingMonth);
+    fill("live",            opts.live);
+    fill("canLive",         opts.canLive);
+    fill("defaultRatio",    opts.ratio);
   }
 
   function fill(id, values) {

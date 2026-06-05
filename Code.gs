@@ -124,7 +124,7 @@ function addEntries(payload) {
       set(row, colIndex.person,          shared.person || "None");
       set(row, colIndex.narrative,       cut.narrative);
       set(row, colIndex.adFormat,        cut.adFormat);
-      set(row, colIndex.onboardingMonth, shared.onboardingMonth || "None");
+      set(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
       set(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
       set(row, colIndex.instagram,       shared.instagram       || "");
       set(row, colIndex.creatorType,     shared.creatorType     || "");
@@ -238,7 +238,9 @@ function getDropdownOptions() {
                   "Trust", "Features", "Why MM is different", "Safety",
                   "Science", "BeforeAfter", "Transplant or PRP",
                   "Product First", "Results/Assurance/ProductFirst"],
-    creatorType: ["", "Meta Creator", "Hair Warrior"],
+    creatorType:     ["", "Meta Creator", "Hair Warrior"],
+    onboardingMonth: ["", "Oct'25", "Nov'25", "Dec'25", "Jan'26", "Feb'26",
+                      "March'26", "April'26", "May'26", "June'26"],
     live:        ["No", "Yes"],
     canLive:     ["Yes", "No"],
     ratio:       ["9:16", "4:5"]
