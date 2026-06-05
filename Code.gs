@@ -107,7 +107,7 @@ function addEntries(payload) {
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const firstNewRow = sheet.getLastRow() + 1;
+    const firstNewRow = getLastDataRow(sheet, colIndex.sno, headerRow) + 1;
     const rows        = [];
 
     cuts.forEach((cut, i) => {
@@ -144,6 +144,9 @@ function addEntries(payload) {
 
     // Write all values in one API call
     sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
+
+    // Make Drive links clickable hyperlinks
+    setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
     // Copy formulas (Ad Name, YT Ad Name) from the last existing data row
     // using copyTo so relative row references adjust automatically
@@ -219,6 +222,39 @@ function getNextSerialNumber(sheet, snoCol, headerRow) {
     if (!isNaN(n) && n > max) max = n;
   });
   return max + 1;
+}
+
+// Returns the last row that has a value in the S.No. column,
+// avoiding gaps caused by formatting/formulas below actual data.
+function getLastDataRow(sheet, snoCol, headerRow) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow <= headerRow) return headerRow;
+
+  const values = sheet
+    .getRange(headerRow + 1, snoCol + 1, lastRow - headerRow, 1)
+    .getValues();
+
+  for (let i = values.length - 1; i >= 0; i--) {
+    if (values[i][0] !== "") return headerRow + 1 + i;
+  }
+  return headerRow;
+}
+
+// Writes Drive links as clickable hyperlinks using RichText.
+function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
+  [colIndex.drive45, colIndex.drive916].forEach(col => {
+    if (col == null) return;
+    const richValues = rows.map(row => {
+      const url = row[col];
+      if (!url) return SpreadsheetApp.newRichTextValue().setText("").build();
+      return SpreadsheetApp.newRichTextValue()
+        .setText(url)
+        .setLinkUrl(url)
+        .build();
+    });
+    sheet.getRange(firstNewRow, col + 1, rows.length, 1)
+      .setRichTextValues(richValues.map(v => [v]));
+  });
 }
 
 function set(row, col, value) {
