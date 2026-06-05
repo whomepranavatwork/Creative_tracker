@@ -35,14 +35,14 @@ const HEADER_MAP = {
 // ── Menu ─────────────────────────────────────────────────────
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Creative Tracker")
-    .addItem("Add New Entries…", "showSidebar")
+    .createMenu("Quick Fill")
+    .addItem("Open", "showSidebar")
     .addToUi();
 }
 
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile("Sidebar")
-    .setTitle("Add New Entries")
+    .setTitle("Quick Fill")
     .setWidth(420);
   SpreadsheetApp.getUi().showSidebar(html);
 }
