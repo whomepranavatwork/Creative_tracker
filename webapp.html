@@ -387,7 +387,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="field">
       <label>Google Drive Folder URL</label>
       <div class="folder-row">
-        <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
+        <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…" oninput="onFolderInput(this.value)" onpaste="onFolderPaste(event)">
         <button class="btn-sec" id="load-btn" onclick="loadFolder()" disabled>Load</button>
       </div>
     </div>
@@ -690,6 +690,20 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   function onPersonInput() {
     const ig = personMap[document.getElementById("person").value.trim()];
     if (ig) document.getElementById("instagram").value = ig;
+  }
+
+  // ── Auto-load on paste ───────────────────────────────────
+  function onFolderPaste(e) {
+    // Use setTimeout so the pasted value is in the input before we read it
+    setTimeout(() => {
+      const val = document.getElementById("folder-url").value.trim();
+      if (val.includes("drive.google.com")) loadFolder();
+    }, 50);
+  }
+
+  function onFolderInput(val) {
+    // Also trigger if user types/drags a full URL (e.g. from address bar)
+    if (val.includes("drive.google.com/drive/folders/")) loadFolder();
   }
 
   // ── Load folder ──────────────────────────────────────────
