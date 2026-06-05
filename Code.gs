@@ -200,10 +200,9 @@ function addEntries(payload) {
     const rows    = [];
 
     cuts.forEach((cut, i) => {
-      const sno = String(nextSno + i).padStart(5, "0");
       const row = new Array(lastCol).fill("");
 
-      set(row, colIndex.sno,             sno);
+      set(row, colIndex.sno,             nextSno + i);
       set(row, colIndex.date,            shared.date || today);
       set(row, colIndex.product,         shared.product);
       // adName: leave blank — formula in sheet handles it
@@ -233,6 +232,11 @@ function addEntries(payload) {
 
     // Write values
     sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
+
+    // Format S.No. column as zero-padded 5-digit (setValues converts strings to numbers)
+    if (colIndex.sno != null) {
+      sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
+    }
 
     // Hyperlink Drive link columns
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
