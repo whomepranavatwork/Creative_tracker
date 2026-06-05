@@ -37,7 +37,85 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("Creative Tracker")
     .addItem("Add New Entries…", "showSidebar")
+    .addSeparator()
+    .addItem("Clean up template rows (active sheet)", "cleanupTemplateRows")
     .addToUi();
+}
+
+// Clears accidentally-written data from template rows.
+// A template row = has S.No. but NO Funnel Type (never a real entry).
+// Preserves S.No., Product Name, and any Ad Name formula.
+function cleanupTemplateRows() {
+  const ui = SpreadsheetApp.getUi();
+  const sheet = SpreadsheetApp.getActiveSheet();
+
+  let { headerRow, colIndex } = detectHeaders(sheet);
+  const lastRow  = sheet.getLastRow();
+  const dataRows = lastRow - headerRow;
+  if (dataRows <= 0) { ui.alert("No data rows found."); return; }
+
+  // Columns to PRESERVE (never clear these)
+  const keepCols = new Set([colIndex.sno, colIndex.product, colIndex.adName, colIndex.ytAdName]);
+
+  // Read S.No. and Funnel Type for every row in one call
+  const snoCol    = colIndex.sno;
+  const funnelCol = colIndex.funnel;
+  const minCol    = Math.min(snoCol, funnelCol) + 1;
+  const maxCol    = Math.max(snoCol, funnelCol) + 1;
+  const width     = maxCol - minCol + 1;
+
+  const data = sheet.getRange(headerRow + 1, minCol, dataRows, width).getValues();
+  const snoOffset    = snoCol    + 1 - minCol;
+  const funnelOffset = funnelCol + 1 - minCol;
+
+  // Find rows that have S.No. but no Funnel (template rows with stale data)
+  const dirtyRows = [];
+  data.forEach((row, i) => {
+    const hasSno    = row[snoOffset]    !== "";
+    const hasFunnel = row[funnelOffset] !== "";
+    if (hasSno && !hasFunnel) dirtyRows.push(headerRow + 1 + i);
+  });
+
+  if (dirtyRows.length === 0) {
+    ui.alert("No template rows with stale data found. Sheet looks clean.");
+    return;
+  }
+
+  const confirm = ui.alert(
+    "Clean up template rows",
+    `Found ${dirtyRows.length} template row(s) with stale data (rows ${dirtyRows[0]}–${dirtyRows[dirtyRows.length-1]}).\n\nThis will clear all columns EXCEPT S.No., Product Name, and Ad Name formula. Continue?`,
+    ui.ButtonSet.YES_NO
+  );
+  if (confirm !== ui.Button.YES) return;
+
+  const totalCols = sheet.getLastColumn();
+
+  dirtyRows.forEach(rowNum => {
+    // Clear the full row, then restore kept columns
+    const rowRange = sheet.getRange(rowNum, 1, 1, totalCols);
+
+    // Read current values and formulas before clearing
+    const values   = rowRange.getValues()[0];
+    const formulas = rowRange.getFormulas()[0];
+
+    // Build cleared row
+    const cleared = new Array(totalCols).fill("");
+    rowRange.setValues([cleared]);
+
+    // Restore preserved columns
+    keepCols.forEach(col => {
+      if (col == null) return;
+      const formula = formulas[col];
+      const value   = values[col];
+      if (formula) {
+        sheet.getRange(rowNum, col + 1).setFormula(formula);
+      } else if (value !== "") {
+        sheet.getRange(rowNum, col + 1).setValue(value);
+      }
+    });
+  });
+
+  ui.alert(`Done. Cleaned ${dirtyRows.length} template row(s).`);
 }
 
 function showSidebar() {
