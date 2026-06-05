@@ -51,7 +51,7 @@ function showSidebar() {
 // Returns everything the sidebar needs on load in one round trip.
 function init() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheetNames = ss.getSheets().map(s => s.getName());
+  const sheetNames = ss.getSheets().slice(0, 7).map(s => s.getName());
 
   // Read Buckets tab for dynamic dropdown values
   const buckets = readBuckets(ss);
