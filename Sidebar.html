@@ -168,17 +168,7 @@
   .file-list input[type=checkbox] { width: auto; flex-shrink: 0; }
   .file-list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* ── Shimmer ──────────────────────────────────────────── */
-  .shimmer-overlay {
-    position: absolute; inset: 0; border-radius: 10px; z-index: 5;
-    background: linear-gradient(90deg, #f0f2f5 25%, #e8eaed 50%, #f0f2f5 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.2s infinite;
-  }
-  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-  .card.loading { position: relative; overflow: hidden; min-height: 180px; }
-
-  /* ── Sticky footer ────────────────────────────────────── */
+/* ── Sticky footer ────────────────────────────────────── */
   .footer {
     position: sticky; bottom: 0; z-index: 15;
     background: #fff; border-top: 1px solid #e0e0e0;
@@ -217,8 +207,7 @@
 </div>
 
 <!-- Step 2: Shared fields -->
-<div class="card loading" id="step2-card">
-  <div class="shimmer-overlay" id="step2-shimmer"></div>
+<div class="card" id="step2-card" style="display:none;">
   <div class="step-header">
     <div class="step-badge">2</div>
     <div class="step-title">Shared Fields</div>
@@ -296,7 +285,7 @@
   <div class="step3-header">
     <div class="step-header" style="margin-bottom:0;">
       <div class="step-badge">3</div>
-      <div class="step-title">Per Cut</div>
+      <div class="step-title">Cut Details</div>
       <div class="step-subtitle" id="cut-count-label"></div>
     </div>
     <label class="toggle-wrap">
@@ -390,11 +379,6 @@
           sel.appendChild(opt);
         });
 
-        // Remove shimmer
-        const shimmer = document.getElementById("step2-shimmer");
-        if (shimmer) shimmer.remove();
-        document.getElementById("step2-card").classList.remove("loading");
-
         document.getElementById("load-btn").disabled = false;
         onTabChange();
       })
@@ -484,6 +468,7 @@
         files = result.files;
         setFolderStatus(`${files.length} file${files.length !== 1 ? "s" : ""} found`, true);
         document.getElementById("cut-count-label").textContent = files.length + " files";
+        document.getElementById("step2-card").style.display = "block";
         document.getElementById("cuts-section").style.display = "block";
         buildCutsTable();
         buildSfaFileList();
@@ -629,6 +614,7 @@
     document.getElementById("folder-url").value = "";
     document.getElementById("folder-status").textContent = "";
     document.getElementById("folder-status").className = "folder-status status-info";
+    document.getElementById("step2-card").style.display = "none";
     document.getElementById("cuts-section").style.display = "none";
     document.getElementById("cuts-body").innerHTML = "";
     document.getElementById("sfa-file-list").innerHTML =
