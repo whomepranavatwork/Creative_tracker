@@ -242,6 +242,22 @@ function addEntries(payload) {
     const sheet  = name ? ss.getSheetByName(name) : ss.getActiveSheet();
     if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
 
+    // Safety guard: check drive link columns in target rows — they are never
+    // pre-filled, so any existing value means we'd overwrite a real entry.
+    const checkCol = colIndex.drive916 != null ? colIndex.drive916 : colIndex.drive45;
+    if (checkCol != null) {
+      const existing = sheet
+        .getRange(firstNewRow, checkCol + 1, cuts.length, 1)
+        .getValues();
+      const conflict = existing.findIndex(r => r[0] !== "");
+      if (conflict !== -1) {
+        return {
+          ok: false,
+          msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
+        };
+      }
+    }
+
     const lastCol = sheet.getLastColumn();
     const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
     const rows    = [];
