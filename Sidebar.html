@@ -165,23 +165,57 @@
 
 <!-- Step 3: Per-cut fields -->
 <div class="section" id="cuts-section">
-  <h3>Step 3 — Per Cut (<span id="cut-count">0</span> files)</h3>
-  <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">
-    Set Funnel, Narrative and Format for each cut. Ratio defaults to the value above.
-  </p>
-  <div style="overflow-x:auto;">
-    <table class="cuts-table" id="cuts-table">
-      <thead>
-        <tr>
-          <th>File</th>
-          <th>Funnel</th>
-          <th>Narrative</th>
-          <th>Format</th>
-          <th>Ratio</th>
-        </tr>
-      </thead>
-      <tbody id="cuts-body"></tbody>
-    </table>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+    <h3 style="margin:0;">Step 3 — Per Cut (<span id="cut-count">0</span> files)</h3>
+    <label style="display:flex;align-items:center;gap:5px;margin:0;font-size:12px;color:#5f6368;cursor:pointer;">
+      <input type="checkbox" id="same-for-all" checked onchange="onSameForAllToggle()">
+      Same for all
+    </label>
+  </div>
+
+  <!-- Shown when "Same for all" is ON -->
+  <div id="all-same-panel">
+    <div class="row2">
+      <div>
+        <label>Funnel</label>
+        <select id="all_funnel"></select>
+      </div>
+      <div>
+        <label>Ratio</label>
+        <select id="all_ratio"></select>
+      </div>
+    </div>
+    <div class="row2">
+      <div>
+        <label>Narrative</label>
+        <div id="all_narrative_wrap"></div>
+      </div>
+      <div>
+        <label>Ad Format</label>
+        <div id="all_adFormat_wrap"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shown when "Same for all" is OFF -->
+  <div id="per-cut-panel" style="display:none;">
+    <p style="font-size:12px;color:#5f6368;margin-bottom:8px;">
+      Set Funnel, Narrative and Format for each cut.
+    </p>
+    <div style="overflow-x:auto;">
+      <table class="cuts-table" id="cuts-table">
+        <thead>
+          <tr>
+            <th>File</th>
+            <th>Funnel</th>
+            <th>Narrative</th>
+            <th>Format</th>
+            <th>Ratio</th>
+          </tr>
+        </thead>
+        <tbody id="cuts-body"></tbody>
+      </table>
+    </div>
   </div>
 </div>
 
@@ -249,6 +283,9 @@
     fill("live",            opts.live);
     fill("canLive",         opts.canLive);
     fill("defaultRatio",    opts.ratio);
+    fill("all_funnel",      opts.funnel);
+    fill("all_ratio",       opts.ratio);
+    // Narrative and Format use makeSelectCell — built in buildCutsTable
   }
 
   function fill(id, values) {
@@ -289,8 +326,24 @@
     el.className = ok === true ? "status-ok" : ok === false ? "status-err" : "status-info";
   }
 
+  function onSameForAllToggle() {
+    const on = document.getElementById("same-for-all").checked;
+    document.getElementById("all-same-panel").style.display  = on ? "" : "none";
+    document.getElementById("per-cut-panel").style.display   = on ? "none" : "";
+  }
+
   // ── Build per-cut table ───────────────────────────────────
   function buildCutsTable() {
+    // Populate the "same for all" custom-select fields
+    const narrativeWrap = document.getElementById("all_narrative_wrap");
+    const adFormatWrap  = document.getElementById("all_adFormat_wrap");
+    narrativeWrap.innerHTML = "";
+    adFormatWrap.innerHTML  = "";
+    const narrativeTd = makeSelectCell("all_narrative", opts.narrative, true);
+    const adFormatTd  = makeSelectCell("all_adFormat",  opts.adFormat,  true);
+    narrativeWrap.appendChild(narrativeTd);
+    adFormatWrap.appendChild(adFormatTd);
+
     const tbody = document.getElementById("cuts-body");
     tbody.innerHTML = "";
     const defaultRatio = document.getElementById("defaultRatio").value;
@@ -406,13 +459,14 @@
 
     if (!shared.product) { showStatus("Please fill in Product Name.", false); return; }
 
+    const sameForAll = document.getElementById("same-for-all").checked;
     const cuts = files.map((f, i) => ({
       url:       f.url,
       fileName:  f.name,
-      funnel:    document.getElementById("funnel_" + i).value,
-      narrative: getCutFieldValue("narrative_" + i),
-      adFormat:  getCutFieldValue("adFormat_" + i),
-      ratio:     document.getElementById("ratio_" + i).value
+      funnel:    sameForAll ? document.getElementById("all_funnel").value    : document.getElementById("funnel_" + i).value,
+      narrative: sameForAll ? getCutFieldValue("all_narrative")              : getCutFieldValue("narrative_" + i),
+      adFormat:  sameForAll ? getCutFieldValue("all_adFormat")               : getCutFieldValue("adFormat_" + i),
+      ratio:     sameForAll ? document.getElementById("all_ratio").value     : document.getElementById("ratio_" + i).value
     }));
 
     document.getElementById("submit-btn").disabled = true;
