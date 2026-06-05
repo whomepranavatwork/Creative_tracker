@@ -107,7 +107,7 @@ function addEntries(payload) {
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const firstNewRow = getLastDataRow(sheet, colIndex.sno, headerRow) + 1;
+    const firstNewRow = getLastDataRow(sheet, colIndex, headerRow) + 1;
     const rows        = [];
 
     cuts.forEach((cut, i) => {
@@ -224,14 +224,17 @@ function getNextSerialNumber(sheet, snoCol, headerRow) {
   return max + 1;
 }
 
-// Returns the last row that has a value in the S.No. column,
-// avoiding gaps caused by formatting/formulas below actual data.
-function getLastDataRow(sheet, snoCol, headerRow) {
+// Returns the last row with an actual entry by scanning the Date Added column,
+// which is never pre-filled unlike S.No. or Product Name.
+function getLastDataRow(sheet, colIndex, headerRow) {
   const lastRow = sheet.getLastRow();
   if (lastRow <= headerRow) return headerRow;
 
+  // Prefer Date Added; fall back to Drive 9:16, then Drive 4:5
+  const col = colIndex.date ?? colIndex.drive916 ?? colIndex.drive45 ?? colIndex.sno;
+
   const values = sheet
-    .getRange(headerRow + 1, snoCol + 1, lastRow - headerRow, 1)
+    .getRange(headerRow + 1, col + 1, lastRow - headerRow, 1)
     .getValues();
 
   for (let i = values.length - 1; i >= 0; i--) {
