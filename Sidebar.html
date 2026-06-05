@@ -81,7 +81,7 @@
   <label>Paste the Google Drive folder link</label>
   <div class="folder-row">
     <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…">
-    <button class="btn-secondary" onclick="loadFolder()">Load</button>
+    <button class="btn-secondary" id="load-btn" onclick="loadFolder()" disabled>Load</button>
   </div>
   <div id="folder-status" class="status-info" style="margin-top:6px;font-size:12px;"></div>
 </div>
@@ -217,6 +217,7 @@
           opt.value = name; opt.textContent = name;
           sel.appendChild(opt);
         });
+        document.getElementById("load-btn").disabled = false; // safe to load now
         onTabChange();
       })
       .withFailureHandler(err => showStatus("Failed to load: " + err.message, false))
@@ -273,8 +274,8 @@
         if (!result.ok) { setFolderStatus(result.msg, false); return; }
         files = result.files;
         setFolderStatus(`Found ${files.length} file${files.length !== 1 ? "s" : ""}.`, true);
-        buildCutsTable();
         document.getElementById("cuts-section").style.display = "block";
+        buildCutsTable();
         document.getElementById("cut-count").textContent = files.length;
         document.getElementById("submit-btn").disabled = false;
       })
