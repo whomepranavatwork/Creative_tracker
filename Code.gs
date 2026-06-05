@@ -75,7 +75,6 @@ function init() {
       creatorType:     ["", "Meta Creator", "Hair Warrior"],
       onboardingMonth: ["", "Oct'25", "Nov'25", "Dec'25", "Jan'26", "Feb'26",
                         "March'26", "April'26", "May'26", "June'26"],
-      live:            ["No", "Yes"],
       canLive:         ["Yes", "No"],
       ratio:           ["9:16", "4:5", "Both"]
     }

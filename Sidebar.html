@@ -140,16 +140,8 @@
   <label>Instagram Profile</label>
   <input type="text" id="instagram" placeholder="https://www.instagram.com/…">
 
-  <div class="row2">
-    <div>
-      <label>Live?</label>
-      <select id="live"></select>
-    </div>
-    <div>
-      <label>Can take live?</label>
-      <select id="canLive"></select>
-    </div>
-  </div>
+  <label>Can take live?</label>
+  <select id="canLive"></select>
 
   <div class="row2">
     <div>
@@ -287,7 +279,6 @@
     fill("language",        opts.language);
     fill("creatorType",     opts.creatorType);
     fill("onboardingMonth", opts.onboardingMonth);
-    fill("live",            opts.live);
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
 
@@ -533,7 +524,6 @@
       creatorType:     document.getElementById("creatorType").value,
       onboardingMonth: document.getElementById("onboardingMonth").value,
       instagram:       document.getElementById("instagram").value.trim(),
-      live:            document.getElementById("live").value,
       canLive:         document.getElementById("canLive").value,
       raisedBy:        document.getElementById("raisedBy").value.trim(),
       additionalInfo:  document.getElementById("additionalInfo").value.trim()
