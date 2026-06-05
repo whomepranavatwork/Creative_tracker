@@ -35,14 +35,14 @@ const HEADER_MAP = {
 // ── Menu ─────────────────────────────────────────────────────
 function onOpen() {
   SpreadsheetApp.getUi()
-    .createMenu("Quick Fill")
+    .createMenu("Bias for Action")
     .addItem("Open", "showSidebar")
     .addToUi();
 }
 
 function showSidebar() {
   const html = HtmlService.createHtmlOutputFromFile("Sidebar")
-    .setTitle("Quick Fill")
+    .setTitle("Bias for Action")
     .setWidth(420);
   SpreadsheetApp.getUi().showSidebar(html);
 }
