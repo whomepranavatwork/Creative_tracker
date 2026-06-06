@@ -6,6 +6,19 @@ const SPREADSHEET_ID      = "1EknvJXuzSZTNKnT3Xr3jsAbPct9yEgCzLbbehwZCJ2E";
 const FORCE_SHEET_NAME    = "";  // leave blank — user picks tab in sidebar
 const HEADER_SEARCH_LIMIT = 20;
 
+// Tab → allowed product names. Returned to the client via init() so changes
+// here take effect on next page load — no webapp.html redeploy needed.
+// Single-product tabs auto-select; multi-product tabs show a dropdown.
+const TAB_PRODUCT_MAP = {
+  "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
+  "Biotin":       ["Biotin30"],
+  "S1":           ["Stage 1"],
+  "S2":           ["Stage2"],
+  "S3":           ["Stage3"],
+  "Form Testing": ["Selfasst"],
+  "Cetosomal":    ["Advance Regime"]
+};
+
 function getSpreadsheet() {
   return SPREADSHEET_ID
     ? SpreadsheetApp.openById(SPREADSHEET_ID)
@@ -60,17 +73,16 @@ function showSidebar() {
   SpreadsheetApp.getUi().showSidebar(html);
 }
 
-// ── Single init call: replaces getSheetNames + getDropdownOptions ─
-// Returns everything the sidebar needs on load in one round trip.
+// ── Single init call — returns everything the client needs on load ─
 function init() {
   const ss = getSpreadsheet();
   const sheetNames = ss.getSheets().slice(0, 7).map(s => s.getName());
 
-  // Read Buckets tab for dynamic dropdown values
   const buckets = readBuckets(ss);
 
   return {
     sheetNames,
+    tabProductMap: TAB_PRODUCT_MAP,
     personMap: buckets.personMap,
     dropdownOptions: {
       product:         buckets.product,
@@ -80,6 +92,7 @@ function init() {
       language:        buckets.language.length ? buckets.language : ["Hinglish", "English", "Hindi"],
       adFormat:        buckets.adFormat.length ? buckets.adFormat : ["Educational", "Non Vo", "Statics",
                          "Testimonial", "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
+      raisedBy:        buckets.raisedBy,
       person:          ["None", ...buckets.person],
       narrative:       ["Problem-Solution", "Results/Assurance", "Myth Busting",
                         "Trust", "Features", "Why MM is different", "Safety",
@@ -95,16 +108,24 @@ function init() {
 }
 
 function readBuckets(ss) {
-  const result = { product: [], funnel: [], intInf: [], adType: [], language: [], adFormat: [], person: [], personMap: {} };
+  const result = {
+    product: [], funnel: [], intInf: [], adType: [], language: [],
+    adFormat: [], person: [], raisedBy: [], personMap: {}
+  };
   const sheet = ss.getSheetByName("Buckets");
   if (!sheet) return result;
 
-  // Columns (0-indexed): A=product, B=funnel, C=intInf, D=adType, E=language, F=adFormat, H=person, I=instagram
+  // Columns (0-indexed): A=product, B=funnel, C=intInf, D=adType, E=language,
+  // F=adFormat, H=person, I=instagram, J=raisedBy
   const data = sheet.getDataRange().getValues();
-  const seen = { product: new Set(), funnel: new Set(), intInf: new Set(), adType: new Set(), language: new Set(), adFormat: new Set(), person: new Set() };
+  const seen = {
+    product: new Set(), funnel: new Set(), intInf: new Set(), adType: new Set(),
+    language: new Set(), adFormat: new Set(), person: new Set(), raisedBy: new Set()
+  };
 
   data.slice(1).forEach(row => {
     const add = (key, col) => {
+      if (col >= row.length) return;
       const v = String(row[col] || "").trim();
       if (v && !seen[key].has(v)) { seen[key].add(v); result[key].push(v); }
     };
@@ -115,8 +136,9 @@ function readBuckets(ss) {
     add("language", 4);
     add("adFormat", 5);
     add("person",   7);
+    add("raisedBy", 9); // column J — add team member names here in Buckets tab
     const person = String(row[7] || "").trim();
-    const ig     = String(row[8] || "").trim();
+    const ig     = String(row.length > 8 ? row[8] : "" || "").trim();
     if (person && ig) result.personMap[person] = ig;
   });
 
@@ -124,7 +146,6 @@ function readBuckets(ss) {
 }
 
 // ── Called when user picks a tab ──────────────────────────────
-// Returns context AND colIndex/headerRow so sidebar can cache them.
 function getSheetContext(tabName) {
   const { sheet, colIndex, headerRow } = resolveSheet(tabName);
   const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
@@ -137,36 +158,32 @@ function getSheetContext(tabName) {
   let adNameFormulaRow = null;
 
   if (dataRows > 0) {
-    // Use Funnel Type to find lastDataRow — pre-filled rows never have it.
-    // Date Added is unreliable because a previous buggy run may have written dates there.
-    // Read S.No. and Funnel Type columns together in one API call.
     const snoCol    = colIndex.sno;
     const funnelCol = colIndex.funnel;
-    const minCol    = Math.min(snoCol, funnelCol) + 1;
-    const maxCol    = Math.max(snoCol, funnelCol) + 1;
-    const width     = maxCol - minCol + 1;
 
-    const data = sheet
-      .getRange(headerRow + 1, minCol, dataRows, width)
-      .getValues();
+    // Guard: both columns must exist before reading
+    if (snoCol != null && funnelCol != null) {
+      const minCol = Math.min(snoCol, funnelCol) + 1;
+      const maxCol = Math.max(snoCol, funnelCol) + 1;
+      const width  = maxCol - minCol + 1;
 
-    const snoOffset    = snoCol    + 1 - minCol;
-    const funnelOffset = funnelCol + 1 - minCol;
+      const data = sheet
+        .getRange(headerRow + 1, minCol, dataRows, width)
+        .getValues();
 
-    // Walk from bottom — first row with a Funnel value is the last real entry
-    for (let i = data.length - 1; i >= 0; i--) {
-      if (data[i][funnelOffset] !== "") {
-        lastDataRow = headerRow + 1 + i;
-        // nextSno comes from THIS row's S.No., not the max across all rows
-        const n = parseInt(data[i][snoOffset], 10);
-        nextSno = isNaN(n) ? 1 : n + 1;
-        break;
+      const snoOffset    = snoCol    + 1 - minCol;
+      const funnelOffset = funnelCol + 1 - minCol;
+
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i][funnelOffset] !== "") {
+          lastDataRow = headerRow + 1 + i;
+          const n = parseInt(data[i][snoOffset], 10);
+          nextSno = isNaN(n) ? 1 : n + 1;
+          break;
+        }
       }
     }
 
-    // Scan the entire Ad Name column in one call to find a row with the formula.
-    // We can't rely on lastDataRow alone because the script may have overwritten
-    // that row's formula with setValues("") in a previous run.
     if (colIndex.adName != null) {
       const allFormulas = sheet
         .getRange(headerRow + 1, colIndex.adName + 1, lastRow - headerRow, 1)
@@ -174,7 +191,7 @@ function getSheetContext(tabName) {
       for (let i = allFormulas.length - 1; i >= 0; i--) {
         if (allFormulas[i][0]) {
           adNameFormula    = allFormulas[i][0];
-          adNameFormulaRow = headerRow + 1 + i; // absolute 1-indexed row
+          adNameFormulaRow = headerRow + 1 + i;
           break;
         }
       }
@@ -222,28 +239,54 @@ function getFolderFiles(folderUrl) {
   return { ok: true, files };
 }
 
-// ── Called by sidebar: writes rows to the sheet ───────────────
-// payload includes cached colIndex, headerRow, lastDataRow, nextSno
-// so no sheet re-scanning is needed.
+// ── Called by client: writes rows to the sheet ───────────────
 function addEntries(payload) {
   try {
-    const tabName      = payload.tabName;
-    const shared       = payload.shared;
-    const cuts         = payload.cuts;
-    const colIndex     = payload.colIndex;
-    const headerRow    = payload.headerRow;
-    const nextSno      = parseInt(payload.nextSno, 10);
-    const firstNewRow  = payload.lastDataRow + 1;
+    const tabName   = payload.tabName;
+    const shared    = payload.shared;
+    const cuts      = payload.cuts;
+    const colIndex  = payload.colIndex;
+    const headerRow = payload.headerRow;
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const ss     = getSpreadsheet();
-    const name   = tabName || FORCE_SHEET_NAME;
-    const sheet  = name ? ss.getSheetByName(name) : ss.getActiveSheet();
+    const ss    = getSpreadsheet();
+    const name  = tabName || FORCE_SHEET_NAME;
+    const sheet = name ? ss.getSheetByName(name) : ss.getActiveSheet();
     if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
 
-    // Safety guard: check drive link columns in target rows — they are never
-    // pre-filled, so any existing value means we'd overwrite a real entry.
+    // Re-derive lastDataRow server-side to avoid race conditions from stale client state.
+    // Scan funnel column from the bottom — same logic as getSheetContext().
+    let lastDataRow = headerRow;
+    let nextSno     = 1;
+    const lastRow   = sheet.getLastRow();
+    const dataRows  = lastRow - headerRow;
+
+    if (dataRows > 0 && colIndex.sno != null && colIndex.funnel != null) {
+      const minCol = Math.min(colIndex.sno, colIndex.funnel) + 1;
+      const maxCol = Math.max(colIndex.sno, colIndex.funnel) + 1;
+      const data   = sheet
+        .getRange(headerRow + 1, minCol, dataRows, maxCol - minCol + 1)
+        .getValues();
+      const snoOff    = colIndex.sno    + 1 - minCol;
+      const funnelOff = colIndex.funnel + 1 - minCol;
+      for (let i = data.length - 1; i >= 0; i--) {
+        if (data[i][funnelOff] !== "") {
+          lastDataRow = headerRow + 1 + i;
+          const n = parseInt(data[i][snoOff], 10);
+          nextSno = isNaN(n) ? 1 : n + 1;
+          break;
+        }
+      }
+    } else {
+      // Fallback to client value if funnel/sno columns missing
+      lastDataRow = payload.lastDataRow;
+      nextSno     = parseInt(payload.nextSno, 10);
+    }
+
+    const firstNewRow = lastDataRow + 1;
+
+    // Overwrite guard: drive link columns are never pre-filled, so any value = real entry
     const checkCol = colIndex.drive916 != null ? colIndex.drive916 : colIndex.drive45;
     if (checkCol != null) {
       const existing = sheet
@@ -271,9 +314,9 @@ function addEntries(payload) {
       // adName: leave blank — formula in sheet handles it
       set(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
       set(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
-      set(row, colIndex.live,            shared.live    || "No");
+      set(row, colIndex.live,            "No"); // always No — team never sets this via the form
       set(row, colIndex.canLive,         shared.canLive || "Yes");
-      set(row, colIndex.raisedBy,        shared.raisedBy || "Pranav");
+      set(row, colIndex.raisedBy,        shared.raisedBy || "");
       set(row, colIndex.funnel,          cut.funnel);
       set(row, colIndex.intInf,          shared.intInf);
       set(row, colIndex.adType,          shared.adType);
@@ -293,20 +336,14 @@ function addEntries(payload) {
       rows.push(row);
     });
 
-    // Write values
     sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
 
-    // Format S.No. column as zero-padded 5-digit (setValues converts strings to numbers)
     if (colIndex.sno != null) {
       sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
     }
 
-    // Hyperlink Drive link columns
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
-    // Copy Ad Name formula from the row where we actually found it
-    // (adNameFormulaRow). copyTo adjusts relative references automatically,
-    // so it doesn't matter if the source is a template row far below lastDataRow.
     if (colIndex.adName != null && payload.adNameFormulaRow) {
       const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
       srcCell.copyTo(
@@ -325,13 +362,16 @@ function addEntries(payload) {
       }
     }
 
+    const firstSno = String(nextSno).padStart(5, "0");
+    const lastSno  = String(nextSno + rows.length - 1).padStart(5, "0");
+    const snoRange = rows.length === 1 ? firstSno : `${firstSno}–${lastSno}`;
+
     return {
       ok:  true,
-      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
-      // Return updated values so sidebar can refresh without another server call
+      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} · S.No. ${snoRange}`,
       nextSno:     String(nextSno + rows.length).padStart(5, "0"),
       lastDataRow: firstNewRow + rows.length - 1,
-      totalRows:   payload.totalRows + rows.length
+      totalRows:   dataRows + rows.length
     };
 
   } catch (e) {
@@ -339,7 +379,7 @@ function addEntries(payload) {
   }
 }
 
-// ── Sheet resolution (only used by getSheetContext) ───────────
+// ── Sheet resolution ──────────────────────────────────────────
 function resolveSheet(tabName) {
   const ss    = getSpreadsheet();
   const name  = tabName || FORCE_SHEET_NAME;
@@ -351,10 +391,9 @@ function resolveSheet(tabName) {
 }
 
 function detectHeaders(sheet) {
-  const limit = Math.min(HEADER_SEARCH_LIMIT, sheet.getLastRow());
-  // Only read the first 30 columns — headers are always in the left portion
-  const readCols = Math.min(30, sheet.getLastColumn());
-  const data  = sheet.getRange(1, 1, limit, readCols).getValues();
+  const limit    = Math.min(HEADER_SEARCH_LIMIT, sheet.getLastRow());
+  const readCols = Math.min(sheet.getLastColumn(), 50); // covers any realistic tracker layout
+  const data     = sheet.getRange(1, 1, limit, readCols).getValues();
 
   const reverseMap = {};
   Object.entries(HEADER_MAP).forEach(([key, text]) => reverseMap[text] = key);

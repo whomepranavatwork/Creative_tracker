@@ -113,8 +113,9 @@ body {
   font-size: 11px; font-weight: 600; padding: 4px 12px;
   border-radius: 20px; white-space: nowrap;
 }
-.badge-green { background: var(--green-bg); color: var(--green); }
+.badge-green  { background: var(--green-bg); color: var(--green); }
 .badge-orange { background: #fef0e8; color: var(--accent); }
+.badge-warn   { background: #fff8e1; color: #b36a00; }
 
 /* ── Fields ── */
 .field { margin-bottom: 16px; }
@@ -171,6 +172,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 .btn-sec:disabled { color: var(--light); cursor: not-allowed; }
 .btn-link { background: none; color: var(--accent); padding: 0; font-size: 13px; font-weight: 600; }
 .btn-link:hover { text-decoration: underline; }
+.btn-xs {
+  height: 26px; padding: 0 10px; font-size: 11px; font-weight: 600;
+  background: var(--bg); color: var(--muted); border: 1px solid var(--border); border-radius: 6px;
+}
+.btn-xs:hover { background: #ede9e3; color: var(--text); }
 
 /* ── Toggle ── */
 .tog-wrap {
@@ -203,10 +209,14 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 }
 
 /* ── File list ── */
+.fl-hd {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
 .fl-label {
   font-size: 11px; font-weight: 600; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px;
+  text-transform: uppercase; letter-spacing: .5px;
 }
+.fl-actions { display: flex; gap: 6px; }
 .file-list {
   border: 1.5px solid var(--border); border-radius: 12px;
   max-height: 260px; overflow-y: auto; background: #faf8f6;
@@ -240,8 +250,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   font-size: 10px; font-weight: 600; color: var(--muted);
   text-transform: uppercase; letter-spacing: .5px; white-space: nowrap;
 }
-.cut-table th.col-chk { width: 32px; }
-.cut-table th.col-num { width: 36px; }
+.cut-table th.col-chk  { width: 32px; }
+.cut-table th.col-num  { width: 36px; }
 .cut-table th.col-file { min-width: 140px; }
 .cut-table th.col-sel  { min-width: 100px; }
 .cut-table th.col-wide { min-width: 150px; }
@@ -282,6 +292,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 }
 .banner-ok  { background: var(--green-bg); color: var(--green); border: 1px solid #b7dfbe; }
 .banner-err { background: var(--red-bg);   color: var(--red);   border: 1px solid #f5b7b4; }
+.banner-warn { background: #fff8e1; color: #b36a00; border: 1px solid #ffe082; }
 @keyframes fadeDown {
   from { opacity: 0; transform: translateY(-6px); }
   to   { opacity: 1; transform: none; }
@@ -318,7 +329,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Cut table: scrollable ── */
+/* ── Cut table: scrollable with sticky first 3 cols ── */
 .cut-table-wrap {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
   border-radius: 12px; max-width: 100%;
@@ -469,7 +480,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       </div>
       <div class="field">
         <label>Raised By</label>
-        <input type="text" id="raisedBy" value="Pranav">
+        <select id="raisedBy"></select>
       </div>
     </div>
 
@@ -513,7 +524,13 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           <div id="all_adFormat_wrap"></div>
         </div>
       </div>
-      <div class="fl-label">Choose files to be added</div>
+      <div class="fl-hd">
+        <div class="fl-label">Choose files to be added</div>
+        <div class="fl-actions">
+          <button class="btn-xs" onclick="setAllChecked(true)">Select all</button>
+          <button class="btn-xs" onclick="setAllChecked(false)">Deselect all</button>
+        </div>
+      </div>
       <div class="file-list" id="sfa-file-list">
         <div class="file-empty">Load a folder first.</div>
       </div>
@@ -554,22 +571,17 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 </div>
 
 <script>
-  let opts      = {};
-  let files     = [];
-  let sheetCtx  = {};
-  let personMap = {};
+  let opts         = {};
+  let files        = [];
+  let sheetCtx     = {};
+  let personMap    = {};
+  let tabProductMap = {};
 
-  const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy"];
+  // Persisted across sessions; product excluded (tab-driven); additionalInfo excluded (batch-specific)
+  const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy","canLive"];
 
-  const TAB_PRODUCT_MAP = {
-    "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
-    "Biotin":       ["Biotin30"],
-    "S1":           ["Stage 1"],
-    "S2":           ["Stage2"],
-    "S3":           ["Stage3"],
-    "Form Testing": ["Selfasst"],
-    "Cetosomal":    ["Advance Regime"]
-  };
+  // Saved when switching between same-for-all and per-cut so values aren't lost
+  let sfaSnapshot = {};
 
   // ── Init ─────────────────────────────────────────────────
   document.addEventListener("DOMContentLoaded", () => {
@@ -579,12 +591,13 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     google.script.run
       .withSuccessHandler(data => {
-        opts = data.dropdownOptions;
-        personMap = data.personMap || {};
+        opts          = data.dropdownOptions;
+        personMap     = data.personMap || {};
+        tabProductMap = data.tabProductMap || {};
+
         populateDropdowns();
         restoreFromStorage();
 
-        // Hidden select + pill buttons
         const hiddenSel = document.getElementById("tab-name");
         const pillsWrap = document.getElementById("tab-pills");
         pillsWrap.innerHTML = "";
@@ -606,7 +619,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         document.getElementById("load-btn").disabled = false;
         if (data.sheetNames.length) selectTabPill(data.sheetNames[0]);
       })
-      .withFailureHandler(err => showBanner("Failed to load: " + err.message, false))
+      .withFailureHandler(err => showBanner("Failed to load: " + err.message, "err"))
       .init();
   });
 
@@ -619,10 +632,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onTabChange() {
-    resetFolderOnly(); // clear folder + cuts, keep shared fields
+    resetFolderOnly();
     const tab = document.getElementById("tab-name").value;
-
-    // Set product dropdown to only the mapped product for this tab
     setProductForTab(tab);
 
     document.getElementById("sheet-info").textContent = "Loading…";
@@ -644,7 +655,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   function setProductForTab(tab) {
     const prodSel = document.getElementById("product");
-    const mapped  = TAB_PRODUCT_MAP[tab];
+    const mapped  = tabProductMap[tab];
     prodSel.innerHTML = "";
     if (mapped && mapped.length > 0) {
       if (mapped.length > 1) {
@@ -658,16 +669,17 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       });
       if (mapped.length === 1) prodSel.value = mapped[0];
     } else {
-      // Tab not in map — show full list
+      // Tab not in TAB_PRODUCT_MAP — show full list with a warning
       prodSel.innerHTML = '<option value="">— select product —</option>';
       (opts.product || []).forEach(v => {
-        const o = document.createElement("option"); o.value = v; o.textContent = v; prodSel.appendChild(o);
+        const o = document.createElement("option"); o.value = v; o.textContent = v;
+        prodSel.appendChild(o);
       });
+      if (tab) showBanner(`Tab "${tab}" has no product mapping — showing all products. Update TAB_PRODUCT_MAP in Code.gs to restrict.`, "warn");
     }
   }
 
   function populateDropdowns() {
-
     fill("intInf",          opts.intInf);
     fill("adType",          opts.adType);
     fill("language",        opts.language);
@@ -675,6 +687,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("onboardingMonth", opts.onboardingMonth);
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
+    fill("raisedBy",        opts.raisedBy);
 
     fillDatalist("person-list", opts.person || []);
 
@@ -710,7 +723,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   // ── Auto-load on paste ───────────────────────────────────
   function onFolderPaste(e) {
-    // Use setTimeout so the pasted value is in the input before we read it
     setTimeout(() => {
       const val = document.getElementById("folder-url").value.trim();
       if (val.includes("drive.google.com")) loadFolder();
@@ -718,7 +730,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onFolderInput(val) {
-    // Also trigger if user types/drags a full URL (e.g. from address bar)
     if (val.includes("drive.google.com/drive/folders/")) loadFolder();
   }
 
@@ -740,7 +751,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         const n = files.length;
         setFolderMsg(`${n} file${n !== 1 ? "s" : ""} ready`, true);
         document.getElementById("file-count-pill").innerHTML =
-          `<span class="card-badge badge-green">${n} files</span>`;
+          `<span class="card-badge ${n > 20 ? "badge-warn" : "badge-green"}">${n} files</span>`;
+
+        if (n > 20) {
+          showBanner(`${n} files loaded — that's a large batch. Double-check you're loading the right folder before submitting.`, "warn");
+        }
 
         document.getElementById("step2-card").style.display   = "block";
         document.getElementById("cuts-section").style.display = "block";
@@ -773,10 +788,34 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     num.textContent = state === "done" ? "✓" : String(n);
   }
 
+  // ── Same-for-all toggle: save/restore values when switching ──
   function onSameForAllToggle() {
     const on = document.getElementById("same-for-all").checked;
+    if (on) {
+      // Switching to same-for-all: restore saved snapshot if any
+      if (sfaSnapshot.funnel)    { const el = document.getElementById("all_funnel");    if (el) el.value = sfaSnapshot.funnel; }
+      if (sfaSnapshot.ratio)     { const el = document.getElementById("all_ratio");     if (el) el.value = sfaSnapshot.ratio; }
+      if (sfaSnapshot.narrative) { const el = document.getElementById("all_narrative"); if (el) el.value = sfaSnapshot.narrative; }
+      if (sfaSnapshot.adFormat)  { const el = document.getElementById("all_adFormat");  if (el) el.value = sfaSnapshot.adFormat; }
+    } else {
+      // Switching to per-cut: save current same-for-all values
+      sfaSnapshot = {
+        funnel:    document.getElementById("all_funnel")?.value,
+        ratio:     document.getElementById("all_ratio")?.value,
+        narrative: document.getElementById("all_narrative")?.value,
+        adFormat:  document.getElementById("all_adFormat")?.value
+      };
+    }
     document.getElementById("all-same-panel").style.display = on ? "" : "none";
     document.getElementById("per-cut-panel").style.display  = on ? "none" : "";
+  }
+
+  // ── Select all / deselect all (SFA file list) ────────────
+  function setAllChecked(checked) {
+    files.forEach((_, i) => {
+      const el = document.getElementById("sfa_include_" + i);
+      if (el) el.checked = checked;
+    });
   }
 
   // ── Build per-cut table ──────────────────────────────────
@@ -902,7 +941,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   // ── Reset folder only (tab change) — shared fields preserved ──
   function resetFolderOnly() {
-    if (!files.length) return; // nothing to reset
     files = [];
     document.getElementById("folder-url").value          = "";
     document.getElementById("folder-status").textContent = "";
@@ -915,30 +953,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("submit-btn-main").disabled  = true;
     document.getElementById("status").innerHTML           = "";
     setProg(1, "active"); setProg(3, "");
-    // Keep step2-card visible and prog step 2 state — fields are intact
   }
 
   // ── Reset everything (New batch) ─────────────────────────
   function resetBatch() {
-    files = [];
-    document.getElementById("folder-url").value           = "";
-    document.getElementById("folder-status").textContent  = "";
-    document.getElementById("folder-status").className    = "folder-msg msg-info";
-    document.getElementById("step2-card").style.display   = "none";
-    document.getElementById("cuts-section").style.display = "none";
-    document.getElementById("submit-bar").style.display   = "none";
-    document.getElementById("cuts-body").innerHTML         = "";
-    document.getElementById("sfa-file-list").innerHTML    = '<div class="file-empty">Load a folder first.</div>';
-    document.getElementById("file-count-pill").innerHTML  = "";
-    document.getElementById("submit-btn-main").disabled   = true;
-    document.getElementById("status").innerHTML            = "";
-    setProg(1,"active"); setProg(2,""); setProg(3,"");
+    resetFolderOnly();
+    document.getElementById("step2-card").style.display = "none";
+    setProg(2, "");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   // ── Submit ───────────────────────────────────────────────
   function submitEntries() {
-    if (!files.length) { showBanner("Load a Drive folder first.", false); return; }
+    if (!files.length) { showBanner("Load a Drive folder first.", "err"); return; }
 
     const shared = {
       product:         document.getElementById("product").value.trim(),
@@ -951,30 +978,44 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       onboardingMonth: document.getElementById("onboardingMonth").value,
       instagram:       document.getElementById("instagram").value.trim(),
       canLive:         document.getElementById("canLive").value,
-      raisedBy:        document.getElementById("raisedBy").value.trim(),
+      raisedBy:        document.getElementById("raisedBy").value,
       additionalInfo:  document.getElementById("additionalInfo").value.trim()
     };
 
-    if (!shared.product) { showBanner("Please select a Product Name.", false); return; }
+    if (!shared.product) { showBanner("Please select a Product Name.", "err"); return; }
 
     const sameForAll = document.getElementById("same-for-all").checked;
     const cuts = [];
+    const missingFunnel = [];
+
     files.forEach((f, i) => {
       const included = sameForAll
         ? (document.getElementById("sfa_include_" + i)?.checked !== false)
         : (document.getElementById("pct_include_" + i)?.checked !== false);
       if (!included) return;
+
+      const funnel = sameForAll
+        ? document.getElementById("all_funnel").value
+        : document.getElementById("funnel_" + i)?.value;
+
+      if (!funnel) { missingFunnel.push(i + 1); return; }
+
       cuts.push({
         url:       f.url,
         fileName:  f.name,
-        funnel:    sameForAll ? document.getElementById("all_funnel").value : document.getElementById("funnel_" + i).value,
-        narrative: sameForAll ? getCutFieldValue("all_narrative")           : getCutFieldValue("narrative_" + i),
-        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")            : getCutFieldValue("adFormat_" + i),
-        ratio:     sameForAll ? getCutFieldValue("all_ratio")               : getCutFieldValue("ratio_" + i)
+        funnel,
+        narrative: sameForAll ? getCutFieldValue("all_narrative") : getCutFieldValue("narrative_" + i),
+        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")  : getCutFieldValue("adFormat_" + i),
+        ratio:     sameForAll ? getCutFieldValue("all_ratio")     : getCutFieldValue("ratio_" + i)
       });
     });
 
-    if (!cuts.length) { showBanner("No files selected.", false); return; }
+    if (missingFunnel.length) {
+      showBanner(`Funnel Type missing for file${missingFunnel.length > 1 ? "s" : ""} #${missingFunnel.join(", #")}. Please select a Funnel for each included file.`, "err");
+      return;
+    }
+
+    if (!cuts.length) { showBanner("No files selected.", "err"); return; }
 
     const btn = document.getElementById("submit-btn-main");
     btn.disabled = true;
@@ -994,12 +1035,12 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           showBannerWithReset(result.msg);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
-          showBanner(result.msg, false);
+          showBanner(result.msg, "err");
         }
       })
       .withFailureHandler(err => {
         btn.disabled = false; btn.textContent = "Add to Sheet";
-        showBanner("Error: " + err.message, false);
+        showBanner("Error: " + err.message, "err");
       })
       .addEntries({
         tabName:          document.getElementById("tab-name").value,
@@ -1015,9 +1056,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   // ── Banners ──────────────────────────────────────────────
-  function showBanner(msg, ok) {
+  function showBanner(msg, type) {
     const div = document.createElement("div");
-    div.className = "banner " + (ok ? "banner-ok" : "banner-err");
+    div.className = "banner banner-" + (type || "err");
     div.textContent = msg;
     const el = document.getElementById("status");
     el.innerHTML = ""; el.appendChild(div);
