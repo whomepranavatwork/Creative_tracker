@@ -28,6 +28,7 @@ body {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 14px; line-height: 1.5; color: var(--text);
   background: var(--bg); min-height: 100vh; padding-bottom: 100px;
+  overflow-x: hidden;
 }
 
 /* ── Top bar ── */
@@ -361,12 +362,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   /* Cut table — horizontal scroll with sticky identity columns */
   .cut-table-wrap {
     overflow-x: auto; -webkit-overflow-scrolling: touch;
-    border-radius: 12px;
-    /* fade on right to hint more content */
-    mask-image: linear-gradient(to right, black 85%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    border-radius: 12px; max-width: 100%;
   }
-  .cut-table { min-width: 540px; }
+  .cut-table { min-width: 480px; width: max-content; }
   /* Sticky checkbox + number + filename */
   .cut-table thead tr th:nth-child(1),
   .cut-table thead tr th:nth-child(2),
