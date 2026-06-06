@@ -319,7 +319,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Responsive ── */
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   /* Layout */
   .topbar, .tab-section, .progress, .main, #status {
     padding-left: 16px; padding-right: 16px;
@@ -355,9 +355,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   .prog-item span { display: none; }
   .prog-line { margin: 0 6px; }
 
-  /* Folder row — stack on very small screens */
-  .folder-row { flex-direction: column; }
-  .folder-row .btn-sec { width: 100%; }
+  /* Folder row — keep inline but shrink Load button */
+  .folder-row .btn-sec { padding: 0 14px; font-size: 13px; }
 
   /* Cut table — horizontal scroll with sticky identity columns */
   .cut-table-wrap {
