@@ -617,12 +617,13 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
   const TAB_PRODUCT_MAP = {
-    "Biotin":       "Biotin30",
-    "S1":           "Stage 1",
-    "S2":           "Stage2",
-    "S3":           "Stage3",
-    "Form Testing": "Selfasst",
-    "Cetosomal":    "Advance Regime"
+    "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
+    "Biotin":       ["Biotin30"],
+    "S1":           ["Stage 1"],
+    "S2":           ["Stage2"],
+    "S3":           ["Stage3"],
+    "Form Testing": ["Selfasst"],
+    "Cetosomal":    ["Advance Regime"]
   };
 
   // ── Init ─────────────────────────────────────────────────
@@ -700,9 +701,17 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const prodSel = document.getElementById("product");
     const mapped  = TAB_PRODUCT_MAP[tab];
     prodSel.innerHTML = "";
-    if (mapped) {
-      const o = document.createElement("option"); o.value = mapped; o.textContent = mapped;
-      prodSel.appendChild(o); prodSel.value = mapped;
+    if (mapped && mapped.length > 0) {
+      if (mapped.length > 1) {
+        const placeholder = document.createElement("option");
+        placeholder.value = ""; placeholder.textContent = "— select product —";
+        prodSel.appendChild(placeholder);
+      }
+      mapped.forEach(v => {
+        const o = document.createElement("option"); o.value = v; o.textContent = v;
+        prodSel.appendChild(o);
+      });
+      if (mapped.length === 1) prodSel.value = mapped[0];
     } else {
       // Tab not in map — show full list
       prodSel.innerHTML = '<option value="">— select product —</option>';
