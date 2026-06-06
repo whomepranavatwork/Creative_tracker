@@ -673,7 +673,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onTabChange() {
-    if (files.length > 0) resetBatch();
+    resetFolderOnly(); // clear folder + cuts, keep shared fields
     const tab = document.getElementById("tab-name").value;
 
     // Auto-select product
@@ -949,7 +949,25 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     });
   }
 
-  // ── Reset ────────────────────────────────────────────────
+  // ── Reset folder only (tab change) — shared fields preserved ──
+  function resetFolderOnly() {
+    if (!files.length) return; // nothing to reset
+    files = [];
+    document.getElementById("folder-url").value          = "";
+    document.getElementById("folder-status").textContent = "";
+    document.getElementById("folder-status").className   = "folder-msg msg-info";
+    document.getElementById("cuts-section").style.display = "none";
+    document.getElementById("submit-bar").style.display  = "none";
+    document.getElementById("cuts-body").innerHTML        = "";
+    document.getElementById("sfa-file-list").innerHTML   = '<div class="file-empty">Load a folder first.</div>';
+    document.getElementById("file-count-pill").innerHTML = "";
+    document.getElementById("submit-btn-main").disabled  = true;
+    document.getElementById("status").innerHTML           = "";
+    setProg(1, "active"); setProg(3, "");
+    // Keep step2-card visible and prog step 2 state — fields are intact
+  }
+
+  // ── Reset everything (New batch) ─────────────────────────
   function resetBatch() {
     files = [];
     document.getElementById("folder-url").value           = "";
