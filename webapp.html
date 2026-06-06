@@ -34,18 +34,18 @@ body {
 /* ── Top bar ── */
 .topbar {
   max-width: 800px; margin: 0 auto;
-  padding: 28px 32px 0;
+  padding: 20px 16px 0;
   display: flex; align-items: center; justify-content: space-between;
 }
 .topbar-title {
-  font-size: 22px; font-weight: 700; letter-spacing: -.5px;
+  font-size: 18px; font-weight: 700; letter-spacing: -.5px;
   display: flex; align-items: center; gap: 8px;
 }
-.topbar-meta { font-size: 12px; color: var(--muted); }
+.topbar-meta { font-size: 12px; color: var(--muted); display: none; }
 
 /* ── Tab selector ── */
 .tab-section {
-  max-width: 800px; margin: 0 auto; padding: 20px 32px 0;
+  max-width: 800px; margin: 0 auto; padding: 16px 16px 0;
 }
 .tab-section-label {
   font-size: 11px; font-weight: 600; text-transform: uppercase;
@@ -76,9 +76,10 @@ body {
 
 /* ── Progress ── */
 .progress {
-  max-width: 800px; margin: 24px auto 0; padding: 0 32px;
+  max-width: 800px; margin: 16px auto 0; padding: 0 16px;
   display: flex; align-items: center; gap: 0;
 }
+.prog-item span { display: none; }
 .prog-item {
   display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--light);
 }
@@ -97,12 +98,12 @@ body {
 }
 
 /* ── Main ── */
-.main { max-width: 800px; margin: 20px auto 0; padding: 0 32px; }
+.main { max-width: 800px; margin: 14px auto 0; padding: 0 16px; }
 
 /* ── Cards ── */
 .card {
-  background: var(--card); border-radius: var(--radius);
-  box-shadow: var(--shadow); padding: 32px; margin-bottom: 16px;
+  background: var(--card); border-radius: 16px;
+  box-shadow: var(--shadow); padding: 20px 18px; margin-bottom: 12px;
   border: 1px solid var(--border);
 }
 .card-hd { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 24px; }
@@ -130,7 +131,7 @@ body {
 .field select {
   width: 100%; height: 44px; padding: 0 14px;
   border: 1.5px solid var(--border); border-radius: 12px;
-  font-size: 14px; color: var(--text); background: #fff;
+  font-size: 16px; color: var(--text); background: #fff;
   transition: border-color .15s, box-shadow .15s; font-family: inherit;
 }
 .field input:focus, .field select:focus {
@@ -139,8 +140,9 @@ body {
 }
 .field input::placeholder { color: var(--light); }
 
-.g2 { display: grid; grid-template-columns: 1fr 1fr;     gap: 14px; }
-.g3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+/* Mobile-first: single column by default, expand on wider screens */
+.g2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+.g3 { display: grid; grid-template-columns: 1fr; gap: 12px; }
 .mt { margin-top: 16px; }
 .sep { margin: 20px 0; border: none; border-top: 1px solid var(--border); }
 
@@ -294,8 +296,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   display: none;
 }
 .sub-inner {
-  max-width: 800px; margin: 0 auto; padding: 14px 32px;
-  display: flex; align-items: center; gap: 16px;
+  max-width: 800px; margin: 0 auto; padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
 }
 .sub-meta { flex: 1; }
 .sub-meta-main { font-size: 14px; font-weight: 600; color: #fff; }
@@ -318,78 +320,53 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* ── Responsive ── */
-@media (max-width: 768px) {
-  /* Layout */
-  .topbar, .tab-section, .progress, .main, #status {
-    padding-left: 16px; padding-right: 16px;
-  }
-  .topbar { padding-top: 20px; }
-  .tab-section { padding-top: 16px; }
-  .progress { margin-top: 16px; }
-  .main { margin-top: 14px; }
-  .sub-inner { padding: 12px 16px; }
+/* ── Cut table: always scrollable ── */
+.cut-table-wrap {
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  border-radius: 12px; max-width: 100%;
+}
+.cut-table { min-width: 480px; width: max-content; }
+/* Sticky first 3 columns */
+.cut-table thead tr th:nth-child(1),
+.cut-table thead tr th:nth-child(2),
+.cut-table thead tr th:nth-child(3) { position: sticky; background: #f5f1ec; z-index: 2; }
+.cut-table thead tr th:nth-child(1) { left: 0; }
+.cut-table thead tr th:nth-child(2) { left: 32px; }
+.cut-table thead tr th:nth-child(3) { left: 68px; }
+.cut-table tbody tr td:nth-child(1),
+.cut-table tbody tr td:nth-child(2),
+.cut-table tbody tr td:nth-child(3) { position: sticky; background: #faf8f6; z-index: 1; }
+.cut-table tbody tr td:nth-child(1) { left: 0; }
+.cut-table tbody tr td:nth-child(2) { left: 32px; }
+.cut-table tbody tr td:nth-child(3) { left: 68px; }
 
-  /* Typography */
-  .topbar-title { font-size: 17px; }
-  .topbar-meta  { display: none; }
-  .card-title   { font-size: 16px; }
+/* Submit bar — button expands on small screens */
+#submit-btn-main { flex-shrink: 0; }
+.sub-meta-sub { display: none; }
 
-  /* Cards */
-  .card { padding: 20px 18px; border-radius: 16px; margin-bottom: 12px; }
-  .card-hd { margin-bottom: 18px; }
-
-  /* iOS zoom prevention — inputs must be 16px on mobile */
+/* ── Desktop expansion (600px+) ── */
+@media (min-width: 600px) {
+  .topbar       { padding: 28px 32px 0; }
+  .tab-section  { padding: 20px 32px 0; }
+  .progress     { margin-top: 24px; padding: 0 32px; }
+  .main         { margin-top: 20px; padding: 0 32px; }
+  #status       { padding: 0 32px; }
+  .sub-inner    { padding: 14px 32px; }
+  .card         { padding: 32px; border-radius: 20px; margin-bottom: 16px; }
+  .card-hd      { margin-bottom: 24px; }
+  .topbar-title { font-size: 22px; }
+  .topbar-meta  { display: block; }
+  .prog-item span { display: inline; }
+  .g2     { grid-template-columns: 1fr 1fr;     gap: 14px; }
+  .sfa-grid { grid-template-columns: 1fr 1fr;   gap: 14px; }
   .field input[type=text],
   .field input[type=date],
-  .field select { font-size: 16px; }
+  .field select { font-size: 14px; }
+  .sub-meta-sub { display: block; }
+}
 
-  /* Grids */
-  .g2, .g3 { grid-template-columns: 1fr; gap: 12px; }
-  .sfa-grid { grid-template-columns: 1fr; gap: 12px; }
-
-  /* Tab pills — smaller touch targets still fine */
-  .tab-pill { font-size: 12px; padding: 7px 14px; }
-
-  /* Progress — hide label text, just show dots on mobile */
-  .prog-item span { display: none; }
-  .prog-line { margin: 0 6px; }
-
-  /* Folder row — keep inline but shrink Load button */
-  .folder-row .btn-sec { padding: 0 14px; font-size: 13px; }
-
-  /* Cut table — horizontal scroll with sticky identity columns */
-  .cut-table-wrap {
-    overflow-x: auto; -webkit-overflow-scrolling: touch;
-    border-radius: 12px; max-width: 100%;
-  }
-  .cut-table { min-width: 480px; width: max-content; }
-  /* Sticky checkbox + number + filename */
-  .cut-table thead tr th:nth-child(1),
-  .cut-table thead tr th:nth-child(2),
-  .cut-table thead tr th:nth-child(3) {
-    position: sticky; background: #f5f1ec; z-index: 2;
-  }
-  .cut-table thead tr th:nth-child(1) { left: 0; }
-  .cut-table thead tr th:nth-child(2) { left: 32px; }
-  .cut-table thead tr th:nth-child(3) { left: 68px; }
-  .cut-table tbody tr td:nth-child(1),
-  .cut-table tbody tr td:nth-child(2),
-  .cut-table tbody tr td:nth-child(3) {
-    position: sticky; background: #faf8f6; z-index: 1;
-  }
-  .cut-table tbody tr td:nth-child(1) { left: 0; }
-  .cut-table tbody tr td:nth-child(2) { left: 32px; }
-  .cut-table tbody tr td:nth-child(3) { left: 68px; }
-  .cut-table tbody tr:hover td:nth-child(1),
-  .cut-table tbody tr:hover td:nth-child(2),
-  .cut-table tbody tr:hover td:nth-child(3) { background: #f0ece6; }
-
-  /* Submit bar — full-width button on mobile */
-  .sub-inner { gap: 10px; }
-  #submit-btn-main { flex: 1; }
-  .sub-meta-main { font-size: 13px; }
-  .sub-meta-sub  { display: none; }
+@media (min-width: 760px) {
+  .g3 { grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
 }
 </style>
 </head>
