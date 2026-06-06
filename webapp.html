@@ -614,7 +614,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   let sheetCtx  = {};
   let personMap = {};
 
-  const LS_KEYS = ["product","intInf","adType","language","person","creatorType","instagram","raisedBy"];
+  const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy"];
 
   const TAB_PRODUCT_MAP = {
     "Biotin":       "Biotin30",
@@ -676,22 +676,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     resetFolderOnly(); // clear folder + cuts, keep shared fields
     const tab = document.getElementById("tab-name").value;
 
-    // Auto-select product only if field is empty
-    const mapped  = TAB_PRODUCT_MAP[tab];
-    const prodSel = document.getElementById("product");
-    if (mapped && prodSel && !prodSel.value) {
-      let found = Array.from(prodSel.options).some(o => {
-        if (o.value === mapped) { prodSel.value = mapped; return true; }
-      });
-      if (!found) found = Array.from(prodSel.options).some(o => {
-        if (o.value.toLowerCase() === mapped.toLowerCase()) { prodSel.value = o.value; return true; }
-      });
-      if (!found) {
-        const o = document.createElement("option");
-        o.value = mapped; o.textContent = mapped;
-        prodSel.appendChild(o); prodSel.value = mapped;
-      }
-    }
+    // Set product dropdown to only the mapped product for this tab
+    setProductForTab(tab);
 
     document.getElementById("sheet-info").textContent = "Loading…";
     document.getElementById("tab-dot").classList.remove("visible");
@@ -710,12 +696,23 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       .getSheetContext(tab);
   }
 
-  function populateDropdowns() {
+  function setProductForTab(tab) {
     const prodSel = document.getElementById("product");
-    prodSel.innerHTML = '<option value="">— select product —</option>';
-    (opts.product || []).forEach(v => {
-      const o = document.createElement("option"); o.value = v; o.textContent = v; prodSel.appendChild(o);
-    });
+    const mapped  = TAB_PRODUCT_MAP[tab];
+    prodSel.innerHTML = "";
+    if (mapped) {
+      const o = document.createElement("option"); o.value = mapped; o.textContent = mapped;
+      prodSel.appendChild(o); prodSel.value = mapped;
+    } else {
+      // Tab not in map — show full list
+      prodSel.innerHTML = '<option value="">— select product —</option>';
+      (opts.product || []).forEach(v => {
+        const o = document.createElement("option"); o.value = v; o.textContent = v; prodSel.appendChild(o);
+      });
+    }
+  }
+
+  function populateDropdowns() {
 
     fill("intInf",          opts.intInf);
     fill("adType",          opts.adType);
