@@ -318,13 +318,81 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* ── Responsive ── */
-@media (max-width: 560px) {
-  .topbar, .tab-section, .progress, .main, #status { padding-left: 20px; padding-right: 20px; }
-  .sub-inner { padding: 12px 20px; }
-  .card { padding: 22px 20px; }
-  .g2, .g3 { grid-template-columns: 1fr; }
-  .sfa-grid { grid-template-columns: 1fr; }
+@media (max-width: 600px) {
+  /* Layout */
+  .topbar, .tab-section, .progress, .main, #status {
+    padding-left: 16px; padding-right: 16px;
+  }
   .topbar { padding-top: 20px; }
+  .tab-section { padding-top: 16px; }
+  .progress { margin-top: 16px; }
+  .main { margin-top: 14px; }
+  .sub-inner { padding: 12px 16px; }
+
+  /* Typography */
+  .topbar-title { font-size: 17px; }
+  .topbar-meta  { display: none; }
+  .card-title   { font-size: 16px; }
+
+  /* Cards */
+  .card { padding: 20px 18px; border-radius: 16px; margin-bottom: 12px; }
+  .card-hd { margin-bottom: 18px; }
+
+  /* iOS zoom prevention — inputs must be 16px on mobile */
+  .field input[type=text],
+  .field input[type=date],
+  .field select { font-size: 16px; }
+
+  /* Grids */
+  .g2, .g3 { grid-template-columns: 1fr; gap: 12px; }
+  .sfa-grid { grid-template-columns: 1fr; gap: 12px; }
+
+  /* Tab pills — smaller touch targets still fine */
+  .tab-pill { font-size: 12px; padding: 7px 14px; }
+
+  /* Progress — hide label text, just show dots on mobile */
+  .prog-item span { display: none; }
+  .prog-line { margin: 0 6px; }
+
+  /* Folder row — stack on very small screens */
+  .folder-row { flex-direction: column; }
+  .folder-row .btn-sec { width: 100%; }
+
+  /* Cut table — horizontal scroll with sticky identity columns */
+  .cut-table-wrap {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    /* fade on right to hint more content */
+    mask-image: linear-gradient(to right, black 85%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, black 85%, transparent 100%);
+  }
+  .cut-table { min-width: 540px; }
+  /* Sticky checkbox + number + filename */
+  .cut-table thead tr th:nth-child(1),
+  .cut-table thead tr th:nth-child(2),
+  .cut-table thead tr th:nth-child(3) {
+    position: sticky; background: #f5f1ec; z-index: 2;
+  }
+  .cut-table thead tr th:nth-child(1) { left: 0; }
+  .cut-table thead tr th:nth-child(2) { left: 32px; }
+  .cut-table thead tr th:nth-child(3) { left: 68px; }
+  .cut-table tbody tr td:nth-child(1),
+  .cut-table tbody tr td:nth-child(2),
+  .cut-table tbody tr td:nth-child(3) {
+    position: sticky; background: #faf8f6; z-index: 1;
+  }
+  .cut-table tbody tr td:nth-child(1) { left: 0; }
+  .cut-table tbody tr td:nth-child(2) { left: 32px; }
+  .cut-table tbody tr td:nth-child(3) { left: 68px; }
+  .cut-table tbody tr:hover td:nth-child(1),
+  .cut-table tbody tr:hover td:nth-child(2),
+  .cut-table tbody tr:hover td:nth-child(3) { background: #f0ece6; }
+
+  /* Submit bar — full-width button on mobile */
+  .sub-inner { gap: 10px; }
+  #submit-btn-main { flex: 1; }
+  .sub-meta-main { font-size: 13px; }
+  .sub-meta-sub  { display: none; }
 }
 </style>
 </head>
