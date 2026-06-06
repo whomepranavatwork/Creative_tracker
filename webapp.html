@@ -676,10 +676,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     resetFolderOnly(); // clear folder + cuts, keep shared fields
     const tab = document.getElementById("tab-name").value;
 
-    // Auto-select product
+    // Auto-select product only if field is empty
     const mapped  = TAB_PRODUCT_MAP[tab];
     const prodSel = document.getElementById("product");
-    if (mapped && prodSel) {
+    if (mapped && prodSel && !prodSel.value) {
       let found = Array.from(prodSel.options).some(o => {
         if (o.value === mapped) { prodSel.value = mapped; return true; }
       });
