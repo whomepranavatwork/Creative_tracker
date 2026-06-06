@@ -92,7 +92,7 @@ function init() {
       language:        buckets.language.length ? buckets.language : ["Hinglish", "English", "Hindi"],
       adFormat:        buckets.adFormat.length ? buckets.adFormat : ["Educational", "Non Vo", "Statics",
                          "Testimonial", "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
-      raisedBy:        buckets.raisedBy,
+      raisedBy:        ["Abhijeet","Varsha","Bhavya","Devansh","Lakshya","Purva","Jay","Cath","Disha","Aniket","Nivedita","Aakash","Karan","Pranav","Dipen","Sutanto"],
       person:          ["None", ...buckets.person],
       narrative:       ["Problem-Solution", "Results/Assurance", "Myth Busting",
                         "Trust", "Features", "Why MM is different", "Safety",
@@ -110,17 +110,17 @@ function init() {
 function readBuckets(ss) {
   const result = {
     product: [], funnel: [], intInf: [], adType: [], language: [],
-    adFormat: [], person: [], raisedBy: [], personMap: {}
+    adFormat: [], person: [], personMap: {}
   };
   const sheet = ss.getSheetByName("Buckets");
   if (!sheet) return result;
 
   // Columns (0-indexed): A=product, B=funnel, C=intInf, D=adType, E=language,
-  // F=adFormat, H=person, I=instagram, J=raisedBy
+  // F=adFormat, H=person, I=instagram
   const data = sheet.getDataRange().getValues();
   const seen = {
     product: new Set(), funnel: new Set(), intInf: new Set(), adType: new Set(),
-    language: new Set(), adFormat: new Set(), person: new Set(), raisedBy: new Set()
+    language: new Set(), adFormat: new Set(), person: new Set()
   };
 
   data.slice(1).forEach(row => {
@@ -136,7 +136,6 @@ function readBuckets(ss) {
     add("language", 4);
     add("adFormat", 5);
     add("person",   7);
-    add("raisedBy", 9); // column J — add team member names here in Buckets tab
     const person = String(row[7] || "").trim();
     const ig     = String(row.length > 8 ? row[8] : "" || "").trim();
     if (person && ig) result.personMap[person] = ig;
