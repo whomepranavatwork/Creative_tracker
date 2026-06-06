@@ -14,7 +14,7 @@ function getSpreadsheet() {
 
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("webapp")
-    .setTitle("Bias for Action!")
+    .setTitle("Creative Tracker")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
