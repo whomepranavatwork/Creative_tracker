@@ -321,11 +321,13 @@ function addEntries(payload) {
 
     const lastCol  = sheet.getLastColumn();
     const today    = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    const skipCols = new Set(
-      (TRACKERS[trackerName].skipColumns || [])
-        .map(k => colIndex[k])
-        .filter(c => c != null)
-    );
+
+    // Merge config-declared skips with columns actually protected on this sheet
+    const configSkip = (TRACKERS[trackerName].skipColumns || [])
+      .map(k => colIndex[k]).filter(c => c != null);
+    const sheetSkip  = getProtectedCols(sheet, lastCol);
+    const skipCols   = new Set([...configSkip, ...sheetSkip]);
+
     const put = (row, col, val) => { if (!skipCols.has(col)) set(row, col, val); };
     const rows = [];
 
@@ -418,14 +420,17 @@ function detectHeaders(sheet) {
   const readCols = Math.min(sheet.getLastColumn(), 50);
   const data     = sheet.getRange(1, 1, limit, readCols).getValues();
 
+  // Case-insensitive reverse map so "Can Take Live?" matches "Can take live?" etc.
   const reverseMap = {};
-  Object.entries(HEADER_MAP).forEach(([key, text]) => reverseMap[text] = key);
+  Object.entries(HEADER_MAP).forEach(([key, text]) => {
+    reverseMap[text.toLowerCase()] = key;
+  });
 
   for (let r = 0; r < data.length; r++) {
     const colIndex = {};
     let matches = 0;
     data[r].forEach((cell, c) => {
-      const key = reverseMap[String(cell).trim()];
+      const key = reverseMap[String(cell).trim().toLowerCase()];
       if (key) { colIndex[key] = c; matches++; }
     });
     if (matches >= 6) return { headerRow: r + 1, colIndex };
@@ -439,37 +444,59 @@ function detectHeaders(sheet) {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-// Write rows as consecutive column segments, skipping any explicitly-skipped columns.
-// If a segment throws a protection error, retries column-by-column and silently skips
-// any column that is protected — so write succeeds even if skipCols missed a protected cell.
-function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
-  function writeSegment(startCol, endCol) {
-    const segData = rows.map(row => row.slice(startCol, endCol + 1));
-    try {
-      sheet.getRange(firstNewRow, startCol + 1, rows.length, endCol - startCol + 1).setValues(segData);
-    } catch (e) {
-      if (String(e).toLowerCase().indexOf("protected") === -1) throw e;
-      // Fall back to column-by-column, skipping whichever column is protected
-      for (let c = startCol; c <= endCol; c++) {
-        const colData = rows.map(row => [row[c]]);
-        try {
-          sheet.getRange(firstNewRow, c + 1, rows.length, 1).setValues(colData);
-        } catch (ce) {
-          if (String(ce).toLowerCase().indexOf("protected") === -1) throw ce;
-          // Skip protected column silently
-        }
-      }
-    }
-  }
+// Returns a Set of 0-based column indices that are write-protected for the current
+// script user. Handles both range-level and sheet-level protections.
+function getProtectedCols(sheet, lastCol) {
+  const me = Session.getEffectiveUser().getEmail();
+  try {
+    if (sheet.getParent().getOwner().getEmail() === me) return new Set(); // owner bypasses all protection
+  } catch (e) { /* shared-drive or unreadable owner — fall through */ }
 
+  const blocked = new Array(lastCol).fill(false);
+  try {
+    // Range-level protections
+    sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) {
+      try {
+        if (p.getEditors().some(function(e) { return e.getEmail() === me; })) return;
+        const r = p.getRange();
+        const c1 = r.getColumn() - 1;
+        const c2 = c1 + r.getNumColumns() - 1;
+        for (let c = Math.max(c1, 0); c <= Math.min(c2, lastCol - 1); c++) blocked[c] = true;
+      } catch (pe) { /* skip unreadable protection */ }
+    });
+
+    // Sheet-level protections (whole sheet locked, with optional unprotected ranges)
+    sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) {
+      try {
+        if (p.getEditors().some(function(e) { return e.getEmail() === me; })) return;
+        blocked.fill(true);
+        p.getUnprotectedRanges().forEach(function(r) {
+          const c1 = r.getColumn() - 1;
+          const c2 = c1 + r.getNumColumns() - 1;
+          for (let c = Math.max(c1, 0); c <= Math.min(c2, lastCol - 1); c++) blocked[c] = false;
+        });
+      } catch (pe) { /* skip unreadable protection */ }
+    });
+  } catch (e) { /* can't read protections — return empty, writes will fail naturally if blocked */ }
+
+  const result = new Set();
+  blocked.forEach(function(b, i) { if (b) result.add(i); });
+  return result;
+}
+
+// Write rows as consecutive column segments, skipping all columns in skipCols.
+// skipCols must already include both config-based and sheet-protection-based skips
+// (built in addEntries via getProtectedCols). No try-catch here — real errors surface.
+function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
   let segStart = null;
   for (let c = 0; c <= lastCol; c++) {
     const isSkipped = skipCols.has(c);
     if (!isSkipped && segStart === null) {
       segStart = c;
     } else if ((isSkipped || c === lastCol) && segStart !== null) {
-      const segEnd = isSkipped ? c - 1 : c - 1;
-      writeSegment(segStart, segEnd);
+      const segEnd  = c - 1;
+      const segData = rows.map(function(row) { return row.slice(segStart, segEnd + 1); });
+      sheet.getRange(firstNewRow, segStart + 1, rows.length, segEnd - segStart + 1).setValues(segData);
       segStart = null;
     }
   }
