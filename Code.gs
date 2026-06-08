@@ -316,48 +316,52 @@ function addEntries(payload) {
       }
     }
 
-    const lastCol = sheet.getLastColumn();
-    const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    const rows    = [];
+    const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    const n     = cuts.length;
 
-    cuts.forEach((cut, i) => {
-      const row = new Array(lastCol).fill("");
+    // Build per-column value arrays — only columns we explicitly own.
+    // Writing column-by-column avoids triggering data validation rules on
+    // adjacent columns we don't touch (the previous full-row setValues approach
+    // wrote empty strings across the entire row, tripping sheet validations).
+    const colVals = {}; // colIndex (0-based) → [val for row 0, val for row 1, ...]
+    const col = (key, valFn) => {
+      const c = colIndex[key];
+      if (c == null) return;
+      colVals[c] = cuts.map((cut, i) => valFn(cut, i));
+    };
 
-      set(row, colIndex.sno,             nextSno + i);
-      set(row, colIndex.date,            shared.date || today);
-      set(row, colIndex.product,         shared.product);
-      // adName: leave blank — formula in sheet handles it
-      set(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
-      set(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
-      set(row, colIndex.live,            "No"); // always No — team never sets this via the form
-      set(row, colIndex.canLive,         shared.canLive || "Yes");
-      set(row, colIndex.raisedBy,        shared.raisedBy || "");
-      set(row, colIndex.funnel,          cut.funnel);
-      set(row, colIndex.intInf,          shared.intInf);
-      set(row, colIndex.adType,          shared.adType);
-      set(row, colIndex.language,        shared.language);
-      set(row, colIndex.person,          shared.person || "None");
-      set(row, colIndex.narrative,       cut.narrative);
-      set(row, colIndex.adFormat,        cut.adFormat);
-      set(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
-      set(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
-      set(row, colIndex.instagram,       shared.instagram       || "");
-      set(row, colIndex.creatorType,     shared.creatorType     || "");
-      set(row, colIndex.ytLinks,         "");
-      set(row, colIndex.dateTakenLive,   "");
-      set(row, colIndex.ytAdsStatus,     "No");
-      // ytAdName: leave blank — formula handles it
+    col("sno",             (_, i) => nextSno + i);
+    col("date",            ()     => shared.date || today);
+    col("product",         ()     => shared.product);
+    col("drive45",         cut    => (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
+    col("drive916",        cut    => (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
+    col("live",            ()     => "No");
+    col("canLive",         ()     => shared.canLive  || "Yes");
+    col("raisedBy",        ()     => shared.raisedBy || "");
+    col("funnel",          cut    => cut.funnel);
+    col("intInf",          ()     => shared.intInf);
+    col("adType",          ()     => shared.adType);
+    col("language",        ()     => shared.language);
+    col("person",          ()     => shared.person   || "");
+    col("narrative",       cut    => cut.narrative);
+    col("adFormat",        cut    => cut.adFormat);
+    col("onboardingMonth", ()     => shared.onboardingMonth || "");
+    col("additionalInfo",  ()     => shared.additionalInfo  || "");
+    col("instagram",       ()     => shared.instagram       || "");
+    col("creatorType",     ()     => shared.creatorType     || "");
+    col("ytAdsStatus",     ()     => "No");
 
-      rows.push(row);
+    // Write each column separately — leaves all other columns untouched
+    Object.entries(colVals).forEach(([c, vals]) => {
+      sheet.getRange(firstNewRow, parseInt(c) + 1, n, 1)
+        .setValues(vals.map(v => [v]));
     });
 
-    sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
-
     if (colIndex.sno != null) {
-      sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
+      sheet.getRange(firstNewRow, colIndex.sno + 1, n, 1).setNumberFormat("00000");
     }
 
-    setHyperlinks(sheet, firstNewRow, rows, colIndex);
+    setHyperlinks(sheet, firstNewRow, cuts, colIndex);
 
     if (colIndex.adName != null && payload.adNameFormulaRow) {
       const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
@@ -430,18 +434,21 @@ function detectHeaders(sheet) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
-  [colIndex.drive45, colIndex.drive916].forEach(col => {
-    if (col == null) return;
-    const richValues = rows.map(row => {
-      const url = row[col];
-      if (!url) return SpreadsheetApp.newRichTextValue().setText("").build();
-      return SpreadsheetApp.newRichTextValue()
-        .setText(url).setLinkUrl(url).build();
-    });
-    sheet.getRange(firstNewRow, col + 1, rows.length, 1)
-      .setRichTextValues(richValues.map(v => [v]));
-  });
+function setHyperlinks(sheet, firstNewRow, cuts, colIndex) {
+  const make = url => url
+    ? SpreadsheetApp.newRichTextValue().setText(url).setLinkUrl(url).build()
+    : SpreadsheetApp.newRichTextValue().setText("").build();
+
+  if (colIndex.drive45 != null) {
+    sheet.getRange(firstNewRow, colIndex.drive45 + 1, cuts.length, 1)
+      .setRichTextValues(cuts.map(cut =>
+        [(cut.ratio === "4:5" || cut.ratio === "Both") ? make(cut.url) : make("")]));
+  }
+  if (colIndex.drive916 != null) {
+    sheet.getRange(firstNewRow, colIndex.drive916 + 1, cuts.length, 1)
+      .setRichTextValues(cuts.map(cut =>
+        [(cut.ratio === "9:16" || cut.ratio === "Both") ? make(cut.url) : make("")]));
+  }
 }
 
 function set(row, col, value) {
