@@ -73,7 +73,7 @@ function getSpreadsheetFor(trackerName) {
 
 // ── Web app entry point ───────────────────────────────────────
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile("MultiTracker_webapp")
+  return HtmlService.createHtmlOutputFromFile("webapp")
     .setTitle("Creative Tracker")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
