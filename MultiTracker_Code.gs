@@ -22,6 +22,7 @@ const TRACKERS = {
   },
   "Beard": {
     spreadsheetId: "1lguNY_9CQIOk6Rsm9hsixJ-GTxMgCpCRhnZIAaxuh2c",
+    skipColumns: ["canLive"],   // auto-filled by sheet rule; do not overwrite
     tabProductMap: {
       "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
     }
@@ -316,35 +317,41 @@ function addEntries(payload) {
       }
     }
 
-    const lastCol = sheet.getLastColumn();
-    const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    const rows    = [];
+    const lastCol  = sheet.getLastColumn();
+    const today    = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    const skipCols = new Set(
+      (TRACKERS[trackerName].skipColumns || [])
+        .map(k => colIndex[k])
+        .filter(c => c != null)
+    );
+    const put = (row, col, val) => { if (!skipCols.has(col)) set(row, col, val); };
+    const rows = [];
 
     cuts.forEach((cut, i) => {
       const row = new Array(lastCol).fill("");
 
-      set(row, colIndex.sno,             nextSno + i);
-      set(row, colIndex.date,            shared.date || today);
-      set(row, colIndex.product,         shared.product);
-      set(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
-      set(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
-      set(row, colIndex.live,            "No");
-      set(row, colIndex.canLive,         shared.canLive  || "Yes");
-      set(row, colIndex.raisedBy,        shared.raisedBy || "");
-      set(row, colIndex.funnel,          cut.funnel);
-      set(row, colIndex.intInf,          shared.intInf);
-      set(row, colIndex.adType,          shared.adType);
-      set(row, colIndex.language,        shared.language);
-      set(row, colIndex.person,          shared.person   || "None");
-      set(row, colIndex.narrative,       cut.narrative);
-      set(row, colIndex.adFormat,        cut.adFormat);
-      set(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
-      set(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
-      set(row, colIndex.instagram,       shared.instagram       || "");
-      set(row, colIndex.creatorType,     shared.creatorType     || "");
-      set(row, colIndex.ytLinks,         "");
-      set(row, colIndex.dateTakenLive,   "");
-      set(row, colIndex.ytAdsStatus,     "No");
+      put(row, colIndex.sno,             nextSno + i);
+      put(row, colIndex.date,            shared.date || today);
+      put(row, colIndex.product,         shared.product);
+      put(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
+      put(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
+      put(row, colIndex.live,            "No");
+      put(row, colIndex.canLive,         shared.canLive  || "Yes");
+      put(row, colIndex.raisedBy,        shared.raisedBy || "");
+      put(row, colIndex.funnel,          cut.funnel);
+      put(row, colIndex.intInf,          shared.intInf);
+      put(row, colIndex.adType,          shared.adType);
+      put(row, colIndex.language,        shared.language);
+      put(row, colIndex.person,          shared.person   || "None");
+      put(row, colIndex.narrative,       cut.narrative);
+      put(row, colIndex.adFormat,        cut.adFormat);
+      put(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
+      put(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
+      put(row, colIndex.instagram,       shared.instagram       || "");
+      put(row, colIndex.creatorType,     shared.creatorType     || "");
+      put(row, colIndex.ytLinks,         "");
+      put(row, colIndex.dateTakenLive,   "");
+      put(row, colIndex.ytAdsStatus,     "No");
 
       rows.push(row);
     });
