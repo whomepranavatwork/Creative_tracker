@@ -351,11 +351,33 @@ function addEntries(payload) {
     col("creatorType",     ()     => shared.creatorType     || "");
     col("ytAdsStatus",     ()     => "No");
 
-    // Write each column separately — leaves all other columns untouched
-    Object.entries(colVals).forEach(([c, vals]) => {
-      sheet.getRange(firstNewRow, parseInt(c) + 1, n, 1)
-        .setValues(vals.map(v => [v]));
-    });
+    // Write contiguous blocks of owned columns in one setValues call each.
+    // Columns with gaps > 1 start a new block. This keeps API calls to 2–4
+    // while never writing to unowned columns (which may have strict validation).
+    const sorted = Object.entries(colVals)
+      .map(([c, vals]) => ({ c: parseInt(c), vals }))
+      .sort((a, b) => a.c - b.c);
+
+    let i = 0;
+    while (i < sorted.length) {
+      let j = i;
+      while (j + 1 < sorted.length && sorted[j + 1].c === sorted[j].c + 1) j++;
+
+      const startCol = sorted[i].c;
+      const width    = sorted[j].c - startCol + 1;
+      const colMap   = {};
+      for (let k = i; k <= j; k++) colMap[sorted[k].c] = sorted[k].vals;
+
+      const data = Array.from({ length: n }, (_, r) =>
+        Array.from({ length: width }, (__, o) => {
+          const vals = colMap[startCol + o];
+          return vals ? vals[r] : "";
+        })
+      );
+
+      sheet.getRange(firstNewRow, startCol + 1, n, width).setValues(data);
+      i = j + 1;
+    }
 
     if (colIndex.sno != null) {
       sheet.getRange(firstNewRow, colIndex.sno + 1, n, 1).setNumberFormat("00000");
