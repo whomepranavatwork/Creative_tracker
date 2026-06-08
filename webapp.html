@@ -460,7 +460,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="g2">
       <div class="field">
         <label>Person Full Name <span class="hint">Instagram auto-fills</span></label>
-        <select id="person" onchange="onPersonChange()"></select>
+        <input type="text" id="person" list="person-list" placeholder="Type to search…" autocomplete="off" oninput="onPersonInput()">
+        <datalist id="person-list"></datalist>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -687,7 +688,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
-    fill("person",          opts.person || []);
+
+    fillDatalist("person-list", opts.person || []);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
@@ -714,11 +716,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     wrap.appendChild(makeSelectField(selId, values, allowCustom, defaultVal));
   }
 
-  function onPersonChange() {
-    const name = document.getElementById("person").value;
-    const ig   = personMap[name];
+  function onPersonInput() {
+    const ig = personMap[document.getElementById("person").value.trim()];
     if (ig) document.getElementById("instagram").value = ig;
-    else    document.getElementById("instagram").value = "";
   }
 
   // ── Auto-load on paste ───────────────────────────────────

@@ -257,51 +257,22 @@ function getFolderFiles(driveUrl) {
 // ── Called by client: writes rows to the sheet ───────────────
 function addEntries(payload) {
   try {
-    const tabName   = payload.tabName;
-    const shared    = payload.shared;
-    const cuts      = payload.cuts;
-    const colIndex  = payload.colIndex;
-    const headerRow = payload.headerRow;
+    const tabName     = payload.tabName;
+    const shared      = payload.shared;
+    const cuts        = payload.cuts;
+    const colIndex    = payload.colIndex;
+    const headerRow   = payload.headerRow;
+    const nextSno     = parseInt(payload.nextSno, 10);
+    const firstNewRow = payload.lastDataRow + 1;
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
-    const ss    = getSpreadsheet();
-    const name  = tabName || FORCE_SHEET_NAME;
-    const sheet = name ? ss.getSheetByName(name) : ss.getActiveSheet();
+    const ss     = getSpreadsheet();
+    const name   = tabName || FORCE_SHEET_NAME;
+    const sheet  = name ? ss.getSheetByName(name) : ss.getActiveSheet();
     if (!sheet) throw new Error("Sheet \"" + name + "\" not found.");
 
-    // Re-derive lastDataRow server-side to avoid race conditions from stale client state.
-    // Scan funnel column from the bottom — same logic as getSheetContext().
-    let lastDataRow = headerRow;
-    let nextSno     = 1;
-    const lastRow   = sheet.getLastRow();
-    const dataRows  = lastRow - headerRow;
-
-    if (dataRows > 0 && colIndex.sno != null && colIndex.funnel != null) {
-      const minCol = Math.min(colIndex.sno, colIndex.funnel) + 1;
-      const maxCol = Math.max(colIndex.sno, colIndex.funnel) + 1;
-      const data   = sheet
-        .getRange(headerRow + 1, minCol, dataRows, maxCol - minCol + 1)
-        .getValues();
-      const snoOff    = colIndex.sno    + 1 - minCol;
-      const funnelOff = colIndex.funnel + 1 - minCol;
-      for (let i = data.length - 1; i >= 0; i--) {
-        if (data[i][funnelOff] !== "") {
-          lastDataRow = headerRow + 1 + i;
-          const n = parseInt(data[i][snoOff], 10);
-          nextSno = isNaN(n) ? 1 : n + 1;
-          break;
-        }
-      }
-    } else {
-      // Fallback to client value if funnel/sno columns missing
-      lastDataRow = payload.lastDataRow;
-      nextSno     = parseInt(payload.nextSno, 10);
-    }
-
-    const firstNewRow = lastDataRow + 1;
-
-    // Overwrite guard: drive link columns are never pre-filled, so any value = real entry
+    // Overwrite guard: drive link columns are never pre-filled
     const checkCol = colIndex.drive916 != null ? colIndex.drive916 : colIndex.drive45;
     if (checkCol != null) {
       const existing = sheet
@@ -316,89 +287,46 @@ function addEntries(payload) {
       }
     }
 
-    const today = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
-    const n     = cuts.length;
+    const lastCol = sheet.getLastColumn();
+    const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+    const rows    = [];
 
-    // Build per-column value arrays — only columns we explicitly own.
-    // Writing column-by-column avoids triggering data validation rules on
-    // adjacent columns we don't touch (the previous full-row setValues approach
-    // wrote empty strings across the entire row, tripping sheet validations).
-    const colVals = {}; // colIndex (0-based) → [val for row 0, val for row 1, ...]
-    const col = (key, valFn) => {
-      const c = colIndex[key];
-      if (c == null) return;
-      colVals[c] = cuts.map((cut, i) => valFn(cut, i));
-    };
+    cuts.forEach((cut, i) => {
+      const row = new Array(lastCol).fill("");
 
-    col("sno",             (_, i) => nextSno + i);
-    col("date",            ()     => shared.date || today);
-    col("product",         ()     => shared.product);
-    col("drive45",         cut    => (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
-    col("drive916",        cut    => (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
-    col("live",            ()     => "No");
-    col("canLive",         ()     => shared.canLive  || "Yes");
-    col("raisedBy",        ()     => shared.raisedBy || "");
-    col("funnel",          cut    => cut.funnel);
-    col("intInf",          ()     => shared.intInf);
-    col("adType",          ()     => shared.adType);
-    col("language",        ()     => shared.language);
-    col("person",          ()     => shared.person   || "");
-    col("narrative",       cut    => cut.narrative);
-    col("adFormat",        cut    => cut.adFormat);
-    col("onboardingMonth", ()     => shared.onboardingMonth || "");
-    col("additionalInfo",  ()     => shared.additionalInfo  || "");
-    col("instagram",       ()     => shared.instagram       || "");
-    col("creatorType",     ()     => shared.creatorType     || "");
-    col("ytAdsStatus",     ()     => "No");
+      set(row, colIndex.sno,             nextSno + i);
+      set(row, colIndex.date,            shared.date || today);
+      set(row, colIndex.product,         shared.product);
+      set(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
+      set(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
+      set(row, colIndex.live,            "No");
+      set(row, colIndex.canLive,         shared.canLive  || "Yes");
+      set(row, colIndex.raisedBy,        shared.raisedBy || "");
+      set(row, colIndex.funnel,          cut.funnel);
+      set(row, colIndex.intInf,          shared.intInf);
+      set(row, colIndex.adType,          shared.adType);
+      set(row, colIndex.language,        shared.language);
+      set(row, colIndex.person,          shared.person   || "None");
+      set(row, colIndex.narrative,       cut.narrative);
+      set(row, colIndex.adFormat,        cut.adFormat);
+      set(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
+      set(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
+      set(row, colIndex.instagram,       shared.instagram       || "");
+      set(row, colIndex.creatorType,     shared.creatorType     || "");
+      set(row, colIndex.ytLinks,         "");
+      set(row, colIndex.dateTakenLive,   "");
+      set(row, colIndex.ytAdsStatus,     "No");
 
-    // Write contiguous blocks of owned columns in one setValues call each.
-    // If a block hits a strict data validation rule, fall back to cell-by-cell
-    // and skip only the offending cell — all other data still writes correctly.
-    const sorted = Object.entries(colVals)
-      .map(([c, vals]) => ({ c: parseInt(c), vals }))
-      .sort((a, b) => a.c - b.c);
+      rows.push(row);
+    });
 
-    let i = 0;
-    while (i < sorted.length) {
-      let j = i;
-      while (j + 1 < sorted.length && sorted[j + 1].c === sorted[j].c + 1) j++;
-
-      const startCol = sorted[i].c;
-      const width    = sorted[j].c - startCol + 1;
-      const colMap   = {};
-      for (let k = i; k <= j; k++) colMap[sorted[k].c] = sorted[k].vals;
-
-      const data = Array.from({ length: n }, (_, r) =>
-        Array.from({ length: width }, (__, o) => {
-          const vals = colMap[startCol + o];
-          return vals ? vals[r] : "";
-        })
-      );
-
-      try {
-        sheet.getRange(firstNewRow, startCol + 1, n, width).setValues(data);
-      } catch (ve) {
-        if (!ve.message || !ve.message.includes("data validation")) throw ve;
-        // Block contains a strictly-validated cell — write cell-by-cell, skipping conflicts
-        for (let r = 0; r < n; r++) {
-          for (let o = 0; o < width; o++) {
-            const v = data[r][o];
-            if (v === "") continue; // blank writes are safe to skip for new rows
-            try {
-              sheet.getRange(firstNewRow + r, startCol + 1 + o).setValue(v);
-            } catch (_) { /* cell has strict dropdown validation — leave blank */ }
-          }
-        }
-      }
-
-      i = j + 1;
-    }
+    sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
 
     if (colIndex.sno != null) {
-      sheet.getRange(firstNewRow, colIndex.sno + 1, n, 1).setNumberFormat("00000");
+      sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
     }
 
-    setHyperlinks(sheet, firstNewRow, cuts, colIndex);
+    setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
     if (colIndex.adName != null && payload.adNameFormulaRow) {
       const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
@@ -418,16 +346,12 @@ function addEntries(payload) {
       }
     }
 
-    const firstSno = String(nextSno).padStart(5, "0");
-    const lastSno  = String(nextSno + rows.length - 1).padStart(5, "0");
-    const snoRange = rows.length === 1 ? firstSno : `${firstSno}–${lastSno}`;
-
     return {
       ok:  true,
-      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} · S.No. ${snoRange}`,
+      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
       nextSno:     String(nextSno + rows.length).padStart(5, "0"),
       lastDataRow: firstNewRow + rows.length - 1,
-      totalRows:   dataRows + rows.length
+      totalRows:   payload.totalRows + rows.length
     };
 
   } catch (e) {
@@ -471,21 +395,17 @@ function detectHeaders(sheet) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
-function setHyperlinks(sheet, firstNewRow, cuts, colIndex) {
-  const make = url => url
-    ? SpreadsheetApp.newRichTextValue().setText(url).setLinkUrl(url).build()
-    : SpreadsheetApp.newRichTextValue().setText("").build();
-
-  if (colIndex.drive45 != null) {
-    sheet.getRange(firstNewRow, colIndex.drive45 + 1, cuts.length, 1)
-      .setRichTextValues(cuts.map(cut =>
-        [(cut.ratio === "4:5" || cut.ratio === "Both") ? make(cut.url) : make("")]));
-  }
-  if (colIndex.drive916 != null) {
-    sheet.getRange(firstNewRow, colIndex.drive916 + 1, cuts.length, 1)
-      .setRichTextValues(cuts.map(cut =>
-        [(cut.ratio === "9:16" || cut.ratio === "Both") ? make(cut.url) : make("")]));
-  }
+function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
+  [colIndex.drive45, colIndex.drive916].forEach(col => {
+    if (col == null) return;
+    const richValues = rows.map(row => {
+      const url = row[col];
+      if (!url) return SpreadsheetApp.newRichTextValue().setText("").build();
+      return SpreadsheetApp.newRichTextValue().setText(url).setLinkUrl(url).build();
+    });
+    sheet.getRange(firstNewRow, col + 1, rows.length, 1)
+      .setRichTextValues(richValues.map(v => [v]));
+  });
 }
 
 function set(row, col, value) {
