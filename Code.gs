@@ -157,20 +157,30 @@ function getSheetContext(tabName) {
   let adNameFormulaRow = null;
 
   if (dataRows > 0) {
-    // sheet.getLastRow() is the ground truth for where data ends — no column heuristics.
-    // Using Funnel Type alone caused rows with blank Funnel to be skipped, writing
-    // new entries on top of existing data.
-    lastDataRow = lastRow;
+    // Drive link and Date Added are never pre-filled, so any non-empty value = real entry.
+    // S.No. and Live? can be pre-filled as templates, so we don't use them for detection.
+    // Funnel alone was unreliable — rows with blank Funnel were skipped, causing overwrites.
+    const signalCols = [colIndex.drive916, colIndex.drive45, colIndex.date].filter(c => c != null);
 
-    // Derive nextSno by scanning S.No. column upward from lastDataRow
-    if (colIndex.sno != null) {
-      const snoData = sheet
-        .getRange(headerRow + 1, colIndex.sno + 1, dataRows, 1)
-        .getValues();
-      for (let i = snoData.length - 1; i >= 0; i--) {
-        const n = parseInt(snoData[i][0], 10);
-        if (!isNaN(n)) { nextSno = n + 1; break; }
+    if (signalCols.length > 0) {
+      const minCol = Math.min(...signalCols) + 1;
+      const maxCol = Math.max(...signalCols) + 1;
+      const data   = sheet.getRange(headerRow + 1, minCol, dataRows, maxCol - minCol + 1).getValues();
+
+      for (let i = data.length - 1; i >= 0; i--) {
+        const isReal = signalCols.some(c => data[i][c + 1 - minCol] !== "");
+        if (isReal) { lastDataRow = headerRow + 1 + i; break; }
       }
+    }
+
+    // nextSno: max S.No. in the real data range (handles gaps and out-of-order entries)
+    if (colIndex.sno != null && lastDataRow > headerRow) {
+      const snoData = sheet
+        .getRange(headerRow + 1, colIndex.sno + 1, lastDataRow - headerRow, 1)
+        .getValues();
+      let maxSno = 0;
+      snoData.forEach(r => { const n = parseInt(r[0], 10); if (!isNaN(n) && n > maxSno) maxSno = n; });
+      nextSno = maxSno + 1;
     }
 
     if (colIndex.adName != null) {
