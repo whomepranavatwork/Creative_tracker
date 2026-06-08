@@ -360,28 +360,34 @@ function addEntries(payload) {
 
     writeRows(sheet, firstNewRow, rows, lastCol, skipCols);
 
-    if (colIndex.sno != null) {
-      sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
+    if (colIndex.sno != null && !skipCols.has(colIndex.sno)) {
+      try {
+        sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
+      } catch (e) { /* protected — skip format */ }
     }
 
     setHyperlinks(sheet, firstNewRow, rows, colIndex);
 
-    if (colIndex.adName != null && payload.adNameFormulaRow) {
-      const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
-      srcCell.copyTo(
-        sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
-        SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
-      );
-    }
-
-    if (colIndex.ytAdName != null && payload.adNameFormulaRow) {
-      const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.ytAdName + 1);
-      if (srcCell.getFormula()) {
+    if (colIndex.adName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.adName)) {
+      try {
+        const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
         srcCell.copyTo(
-          sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
+          sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
           SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
         );
-      }
+      } catch (e) { /* protected — skip formula copy */ }
+    }
+
+    if (colIndex.ytAdName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.ytAdName)) {
+      try {
+        const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.ytAdName + 1);
+        if (srcCell.getFormula()) {
+          srcCell.copyTo(
+            sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
+            SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
+          );
+        }
+      } catch (e) { /* protected — skip formula copy */ }
     }
 
     return {
