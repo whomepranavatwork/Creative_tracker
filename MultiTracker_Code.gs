@@ -445,19 +445,15 @@ function detectHeaders(sheet) {
 // ── Helpers ───────────────────────────────────────────────────
 
 // Returns a Set of 0-based column indices that are write-protected for the current
-// script user. Handles both range-level and sheet-level protections.
+// script user. Uses p.canEdit() which correctly handles owner-only protections
+// (getEditors() returns [] for those, which would wrongly look like "no one can edit").
 function getProtectedCols(sheet, lastCol) {
-  const me = Session.getEffectiveUser().getEmail();
-  try {
-    if (sheet.getParent().getOwner().getEmail() === me) return new Set(); // owner bypasses all protection
-  } catch (e) { /* shared-drive or unreadable owner — fall through */ }
-
   const blocked = new Array(lastCol).fill(false);
   try {
-    // Range-level protections
+    // Range-level protections: a range is blocked if canEdit() returns false
     sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) {
       try {
-        if (p.getEditors().some(function(e) { return e.getEmail() === me; })) return;
+        if (p.canEdit()) return; // current user can write to this protected range
         const r = p.getRange();
         const c1 = r.getColumn() - 1;
         const c2 = c1 + r.getNumColumns() - 1;
@@ -465,10 +461,10 @@ function getProtectedCols(sheet, lastCol) {
       } catch (pe) { /* skip unreadable protection */ }
     });
 
-    // Sheet-level protections (whole sheet locked, with optional unprotected ranges)
+    // Sheet-level protections: entire sheet locked except unprotectedRanges
     sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) {
       try {
-        if (p.getEditors().some(function(e) { return e.getEmail() === me; })) return;
+        if (p.canEdit()) return;
         blocked.fill(true);
         p.getUnprotectedRanges().forEach(function(r) {
           const c1 = r.getColumn() - 1;
@@ -477,7 +473,7 @@ function getProtectedCols(sheet, lastCol) {
         });
       } catch (pe) { /* skip unreadable protection */ }
     });
-  } catch (e) { /* can't read protections — return empty, writes will fail naturally if blocked */ }
+  } catch (e) { /* can't read protections — return empty Set, real errors will surface on write */ }
 
   const result = new Set();
   blocked.forEach(function(b, i) { if (b) result.add(i); });
