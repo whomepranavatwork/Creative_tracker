@@ -9,19 +9,7 @@
 // Add / remove trackers here. The key is the display name shown
 // in the tracker selector; spreadsheetId is the Sheet ID from its URL.
 const TRACKERS = {
-  "Hair Stage": {
-    spreadsheetId: "1EknvJXuzSZTNKnT3Xr3jsAbPct9yEgCzLbbehwZCJ2E",
-    tabProductMap: {
-      "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
-      "Biotin":       ["Biotin30"],
-      "S1":           ["Stage 1"],
-      "S2":           ["Stage2"],
-      "S3":           ["Stage3"],
-      "Form Testing": ["Selfasst"],
-      "Cetosomal":    ["Advance Regime"]
-    }
-  },
-  "Hair Stage 2": {
+  "Hair": {
     spreadsheetId: "1DbcV58XCrHQqjqg1Kl6JaEsBHrpBA7jGiqGOB71wj1Y",
     tabProductMap: {
       "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
@@ -90,12 +78,20 @@ function getTrackers() {
 
 // ── Called when user switches tracker ────────────────────────
 function selectTracker(trackerName) {
+  // Cache Buckets + sheetNames for 5 min so repeated switches are instant.
+  const cache    = CacheService.getScriptCache();
+  const cacheKey = "tracker_v1_" + trackerName;
+  const cached   = cache.get(cacheKey);
+  if (cached) {
+    try { return JSON.parse(cached); } catch (e) { /* fall through on parse error */ }
+  }
+
   const ss      = getSpreadsheetFor(trackerName);
   const t       = TRACKERS[trackerName];
   const sheetNames = ss.getSheets().slice(0, 7).map(s => s.getName());
   const buckets = readBuckets(ss);
 
-  return {
+  const result = {
     trackerName,
     sheetNames,
     tabProductMap: t.tabProductMap,
@@ -121,6 +117,9 @@ function selectTracker(trackerName) {
       ratio:           ["9:16", "4:5", "Both"]
     }
   };
+
+  try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { /* ignore cache write errors */ }
+  return result;
 }
 
 function readBuckets(ss) {
@@ -171,28 +170,36 @@ function getSheetContext(tabName, trackerName) {
   let adNameFormulaRow = null;
 
   if (dataRows > 0) {
+    // Batch: merge signal cols + sno col into one range read instead of two calls.
     const signalCols = [colIndex.drive916, colIndex.drive45, colIndex.date].filter(c => c != null);
+    const scanCols   = colIndex.sno != null ? [...signalCols, colIndex.sno] : [...signalCols];
 
-    if (signalCols.length > 0) {
-      const minCol = Math.min(...signalCols) + 1;
-      const maxCol = Math.max(...signalCols) + 1;
-      const data   = sheet.getRange(headerRow + 1, minCol, dataRows, maxCol - minCol + 1).getValues();
+    if (scanCols.length > 0) {
+      const minC  = Math.min(...scanCols);
+      const maxC  = Math.max(...scanCols);
+      const data  = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
 
+      // Detect last real row (signal cols never pre-filled)
       for (let i = data.length - 1; i >= 0; i--) {
-        const isReal = signalCols.some(c => data[i][c + 1 - minCol] !== "");
-        if (isReal) { lastDataRow = headerRow + 1 + i; break; }
+        if (signalCols.some(c => data[i][c - minC] !== "")) {
+          lastDataRow = headerRow + 1 + i;
+          break;
+        }
+      }
+
+      // Max S.No. in real data range (same read, no extra API call)
+      if (colIndex.sno != null && lastDataRow > headerRow) {
+        let maxSno = 0;
+        const snoOff = colIndex.sno - minC;
+        for (let i = 0; i <= lastDataRow - headerRow - 1; i++) {
+          const n = parseInt(data[i][snoOff], 10);
+          if (!isNaN(n) && n > maxSno) maxSno = n;
+        }
+        nextSno = maxSno + 1;
       }
     }
 
-    if (colIndex.sno != null && lastDataRow > headerRow) {
-      const snoData = sheet
-        .getRange(headerRow + 1, colIndex.sno + 1, lastDataRow - headerRow, 1)
-        .getValues();
-      let maxSno = 0;
-      snoData.forEach(r => { const n = parseInt(r[0], 10); if (!isNaN(n) && n > maxSno) maxSno = n; });
-      nextSno = maxSno + 1;
-    }
-
+    // Formula scan — separate call (getFormulas can't be batched with getValues)
     if (colIndex.adName != null) {
       const allFormulas = sheet
         .getRange(headerRow + 1, colIndex.adName + 1, lastRow - headerRow, 1)
