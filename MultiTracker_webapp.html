@@ -701,8 +701,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("sheet-info").textContent = "Loading…";
     document.getElementById("tab-dot").classList.remove("visible");
 
+    const tabAtCall = tab;
     google.script.run
       .withSuccessHandler(ctx => {
+        // Discard if user switched tabs while this call was in flight
+        if (document.getElementById("tab-name").value !== tabAtCall) return;
         sheetCtx = ctx;
         document.getElementById("sheet-info").textContent =
           `${ctx.totalRows} entries · Next S.No: ${ctx.nextSno}`;
@@ -710,6 +713,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         updateSubMeta();
       })
       .withFailureHandler(() => {
+        if (document.getElementById("tab-name").value !== tabAtCall) return;
         document.getElementById("sheet-info").textContent = "⚠ No headers found on this tab";
       })
       .getSheetContext(tab, currentTracker);
