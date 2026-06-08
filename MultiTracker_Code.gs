@@ -92,7 +92,7 @@ function getTrackers() {
 function selectTracker(trackerName) {
   // Cache Buckets + sheetNames for 5 min so repeated switches are instant.
   const cache    = CacheService.getScriptCache();
-  const cacheKey = "tracker_v2_" + trackerName;
+  const cacheKey = "tracker_v3_" + trackerName;
   const cached   = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) { /* fall through on parse error */ }
@@ -433,22 +433,37 @@ function detectHeaders(sheet) {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-// Write rows as consecutive column segments, skipping any protected columns.
-// For trackers with no skipCols this is a single setValues call (no overhead).
+// Write rows as consecutive column segments, skipping any explicitly-skipped columns.
+// If a segment throws a protection error, retries column-by-column and silently skips
+// any column that is protected — so write succeeds even if skipCols missed a protected cell.
 function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
-  if (skipCols.size === 0) {
-    sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
-    return;
+  function writeSegment(startCol, endCol) {
+    const segData = rows.map(row => row.slice(startCol, endCol + 1));
+    try {
+      sheet.getRange(firstNewRow, startCol + 1, rows.length, endCol - startCol + 1).setValues(segData);
+    } catch (e) {
+      if (String(e).toLowerCase().indexOf("protected") === -1) throw e;
+      // Fall back to column-by-column, skipping whichever column is protected
+      for (let c = startCol; c <= endCol; c++) {
+        const colData = rows.map(row => [row[c]]);
+        try {
+          sheet.getRange(firstNewRow, c + 1, rows.length, 1).setValues(colData);
+        } catch (ce) {
+          if (String(ce).toLowerCase().indexOf("protected") === -1) throw ce;
+          // Skip protected column silently
+        }
+      }
+    }
   }
+
   let segStart = null;
   for (let c = 0; c <= lastCol; c++) {
     const isSkipped = skipCols.has(c);
     if (!isSkipped && segStart === null) {
       segStart = c;
     } else if ((isSkipped || c === lastCol) && segStart !== null) {
-      const segEnd  = isSkipped ? c - 1 : c - 1;
-      const segData = rows.map(row => row.slice(segStart, segEnd + 1));
-      sheet.getRange(firstNewRow, segStart + 1, rows.length, segEnd - segStart + 1).setValues(segData);
+      const segEnd = isSkipped ? c - 1 : c - 1;
+      writeSegment(segStart, segEnd);
       segStart = null;
     }
   }
