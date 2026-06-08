@@ -356,7 +356,7 @@ function addEntries(payload) {
       rows.push(row);
     });
 
-    sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
+    writeRows(sheet, firstNewRow, rows, lastCol, skipCols);
 
     if (colIndex.sno != null) {
       sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
@@ -430,6 +430,28 @@ function detectHeaders(sheet) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────
+
+// Write rows as consecutive column segments, skipping any protected columns.
+// For trackers with no skipCols this is a single setValues call (no overhead).
+function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
+  if (skipCols.size === 0) {
+    sheet.getRange(firstNewRow, 1, rows.length, lastCol).setValues(rows);
+    return;
+  }
+  let segStart = null;
+  for (let c = 0; c <= lastCol; c++) {
+    const isSkipped = skipCols.has(c);
+    if (!isSkipped && segStart === null) {
+      segStart = c;
+    } else if ((isSkipped || c === lastCol) && segStart !== null) {
+      const segEnd  = isSkipped ? c - 1 : c - 1;
+      const segData = rows.map(row => row.slice(segStart, segEnd + 1));
+      sheet.getRange(firstNewRow, segStart + 1, rows.length, segEnd - segStart + 1).setValues(segData);
+      segStart = null;
+    }
+  }
+}
+
 function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
   [colIndex.drive45, colIndex.drive916].forEach(col => {
     if (col == null) return;
