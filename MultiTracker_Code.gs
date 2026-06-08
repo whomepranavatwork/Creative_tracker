@@ -12,7 +12,6 @@ const TRACKERS = {
   "Hair": {
     spreadsheetId: "1DbcV58XCrHQqjqg1Kl6JaEsBHrpBA7jGiqGOB71wj1Y",
     tabProductMap: {
-      "BGK":          ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"],
       "Biotin":       ["Biotin30"],
       "S1":           ["Stage 1"],
       "S2":           ["Stage2"],
@@ -20,7 +19,18 @@ const TRACKERS = {
       "Form Testing": ["Selfasst"],
       "Cetosomal":    ["Advance Regime"]
     }
+  },
+  "Beard": {
+    spreadsheetId: "1lguNY_9CQIOk6Rsm9hsixJ-GTxMgCpCRhnZIAaxuh2c",
+    tabProductMap: {
+      "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
+    }
   }
+  // Nutrition tracker — add when ready:
+  // "Nutrition": {
+  //   spreadsheetId: "REPLACE_WITH_ID",
+  //   tabProductMap: { "Magnesium": ["Magnesium"], "Creatine": ["Creatine"], ... }
+  // }
 };
 
 const HEADER_SEARCH_LIMIT = 20;
@@ -80,15 +90,20 @@ function getTrackers() {
 function selectTracker(trackerName) {
   // Cache Buckets + sheetNames for 5 min so repeated switches are instant.
   const cache    = CacheService.getScriptCache();
-  const cacheKey = "tracker_v1_" + trackerName;
+  const cacheKey = "tracker_v2_" + trackerName;
   const cached   = cache.get(cacheKey);
   if (cached) {
     try { return JSON.parse(cached); } catch (e) { /* fall through on parse error */ }
   }
 
-  const ss      = getSpreadsheetFor(trackerName);
-  const t       = TRACKERS[trackerName];
-  const sheetNames = ss.getSheets().slice(0, 7).map(s => s.getName());
+  const ss = getSpreadsheetFor(trackerName);
+  const t  = TRACKERS[trackerName];
+
+  // Only show tabs that have a product mapping — hides pivot/utility tabs
+  const sheetNames = ss.getSheets()
+    .map(s => s.getName())
+    .filter(name => t.tabProductMap[name] !== undefined);
+
   const buckets = readBuckets(ss);
 
   const result = {
