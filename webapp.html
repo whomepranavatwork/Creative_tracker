@@ -460,8 +460,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="g2">
       <div class="field">
         <label>Person Full Name <span class="hint">Instagram auto-fills</span></label>
-        <input type="text" id="person" list="person-list" placeholder="Type to search…" autocomplete="off" oninput="onPersonInput()">
-        <datalist id="person-list"></datalist>
+        <select id="person" onchange="onPersonInput()"></select>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -689,7 +688,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
 
-    fillDatalist("person-list", opts.person || []);
+    fill("person", opts.person || []);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
