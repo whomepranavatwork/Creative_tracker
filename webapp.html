@@ -406,9 +406,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       <div id="file-count-pill"></div>
     </div>
     <div class="field">
-      <label>Google Drive Folder URL</label>
+      <label>Google Drive Folder or File URL</label>
       <div class="folder-row">
-        <input type="text" id="folder-url" placeholder="https://drive.google.com/drive/folders/…" oninput="onFolderInput(this.value)" onpaste="onFolderPaste(event)">
+        <input type="text" id="folder-url" placeholder="Paste a Drive folder or individual file link…" oninput="onFolderInput(this.value)" onpaste="onFolderPaste(event)">
         <button class="btn-sec" id="load-btn" onclick="loadFolder()" disabled>Load</button>
       </div>
     </div>
@@ -730,7 +730,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onFolderInput(val) {
-    if (val.includes("drive.google.com/drive/folders/")) loadFolder();
+    if (val.includes("drive.google.com/drive/folders/") || val.includes("drive.google.com/file/d/")) loadFolder();
   }
 
   // ── Load folder ──────────────────────────────────────────

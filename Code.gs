@@ -210,10 +210,26 @@ function getSheetContext(tabName) {
   };
 }
 
-// ── Called by sidebar: reads files from a Drive folder ────────
-function getFolderFiles(folderUrl) {
-  const folderId = extractDriveFolderId(folderUrl);
-  if (!folderId) return { ok: false, msg: "Could not extract folder ID. Make sure it's a Google Drive folder link." };
+// ── Called by client: reads files from a Drive folder or single file ──
+function getFolderFiles(driveUrl) {
+  // Single file link: drive.google.com/file/d/FILE_ID/...
+  const fileMatch = String(driveUrl).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (fileMatch) {
+    try {
+      const f = DriveApp.getFileById(fileMatch[1]);
+      return { ok: true, files: [{
+        id:   f.getId(),
+        name: f.getName(),
+        url:  "https://drive.google.com/file/d/" + f.getId() + "/view?usp=drive_link"
+      }]};
+    } catch (e) {
+      return { ok: false, msg: "Could not access file. Make sure it's shared with your Google account." };
+    }
+  }
+
+  // Folder link
+  const folderId = extractDriveFolderId(driveUrl);
+  if (!folderId) return { ok: false, msg: "Could not extract folder or file ID. Paste a Google Drive folder or file link." };
 
   let folder;
   try {
