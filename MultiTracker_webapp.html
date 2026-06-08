@@ -471,7 +471,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         <label>Language</label>
         <select id="language"></select>
       </div>
-      <div class="field">
+      <div class="field" id="field-canLive">
         <label>Can Take Live?</label>
         <select id="canLive"></select>
       </div>
@@ -635,11 +635,21 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   });
 
   // ── Apply data after tracker load/switch ─────────────────
+  // Fields that can be hidden per tracker (key → wrapper element id)
+  const HIDEABLE_FIELDS = { canLive: "field-canLive" };
+
   function applyTrackerData(data) {
     currentTracker = data.trackerName || data.activeTracker;
     opts           = data.dropdownOptions;
     personMap      = data.personMap || {};
     tabProductMap  = data.tabProductMap || {};
+
+    // Show/hide fields based on tracker config
+    const hidden = new Set(data.hideFields || []);
+    Object.entries(HIDEABLE_FIELDS).forEach(([key, elId]) => {
+      const el = document.getElementById(elId);
+      if (el) el.style.display = hidden.has(key) ? "none" : "";
+    });
 
     populateDropdowns();
     restoreFromStorage();

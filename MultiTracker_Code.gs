@@ -22,7 +22,8 @@ const TRACKERS = {
   },
   "Beard": {
     spreadsheetId: "1lguNY_9CQIOk6Rsm9hsixJ-GTxMgCpCRhnZIAaxuh2c",
-    skipColumns: ["canLive"],   // auto-filled by sheet rule; do not overwrite
+    skipColumns: ["canLive"],  // auto-filled by sheet rule; do not overwrite
+    hideFields:  ["canLive"],  // hidden in the form UI
     tabProductMap: {
       "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
     }
@@ -110,6 +111,7 @@ function selectTracker(trackerName) {
   const result = {
     trackerName,
     sheetNames,
+    hideFields:   t.hideFields || [],
     tabProductMap: t.tabProductMap,
     personMap:     buckets.personMap,
     dropdownOptions: {
