@@ -1045,7 +1045,20 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       additionalInfo:  document.getElementById("additionalInfo").value.trim()
     };
 
-    if (!shared.product) { showBanner("Please select a Product Name.", "err"); return; }
+    const required = [
+      { val: shared.product,         label: "Product Name" },
+      { val: shared.intInf,          label: "INT / INF" },
+      { val: shared.adType,          label: "Ad Type" },
+      { val: shared.language,        label: "Language" },
+      { val: shared.person,          label: "Person Full Name" },
+      { val: shared.onboardingMonth, label: "Inf Onboarding Month" },
+      { val: shared.raisedBy,        label: "Raised By" }
+    ];
+    const missing = required.filter(f => !f.val).map(f => f.label);
+    if (missing.length) {
+      showBanner("Please fill in: " + missing.join(", "), "err");
+      return;
+    }
 
     const sameForAll = document.getElementById("same-for-all").checked;
     const cuts = [];
@@ -1063,18 +1076,21 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
       if (!funnel) { missingFunnel.push(i + 1); return; }
 
-      cuts.push({
-        url:       f.url,
-        fileName:  f.name,
-        funnel,
-        narrative: sameForAll ? getCutFieldValue("all_narrative") : getCutFieldValue("narrative_" + i),
-        adFormat:  sameForAll ? getCutFieldValue("all_adFormat")  : getCutFieldValue("adFormat_" + i),
-        ratio:     sameForAll ? getCutFieldValue("all_ratio")     : getCutFieldValue("ratio_" + i)
-      });
+      const narrative = sameForAll ? getCutFieldValue("all_narrative") : getCutFieldValue("narrative_" + i);
+      const adFormat  = sameForAll ? getCutFieldValue("all_adFormat")  : getCutFieldValue("adFormat_" + i);
+      const ratio     = sameForAll ? getCutFieldValue("all_ratio")     : getCutFieldValue("ratio_" + i);
+
+      cuts.push({ url: f.url, fileName: f.name, funnel, narrative, adFormat, ratio });
     });
 
     if (missingFunnel.length) {
       showBanner(`Funnel Type missing for file${missingFunnel.length > 1 ? "s" : ""} #${missingFunnel.join(", #")}. Please select a Funnel for each included file.`, "err");
+      return;
+    }
+
+    const missingNarrative = cuts.map((c, i) => !c.narrative ? i + 1 : null).filter(n => n !== null);
+    if (missingNarrative.length) {
+      showBanner(`Broad Narrative missing for file${missingNarrative.length > 1 ? "s" : ""} #${missingNarrative.join(", #")}.`, "err");
       return;
     }
 
