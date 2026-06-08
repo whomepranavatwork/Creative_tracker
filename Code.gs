@@ -157,29 +157,19 @@ function getSheetContext(tabName) {
   let adNameFormulaRow = null;
 
   if (dataRows > 0) {
-    const snoCol    = colIndex.sno;
-    const funnelCol = colIndex.funnel;
+    // sheet.getLastRow() is the ground truth for where data ends — no column heuristics.
+    // Using Funnel Type alone caused rows with blank Funnel to be skipped, writing
+    // new entries on top of existing data.
+    lastDataRow = lastRow;
 
-    // Guard: both columns must exist before reading
-    if (snoCol != null && funnelCol != null) {
-      const minCol = Math.min(snoCol, funnelCol) + 1;
-      const maxCol = Math.max(snoCol, funnelCol) + 1;
-      const width  = maxCol - minCol + 1;
-
-      const data = sheet
-        .getRange(headerRow + 1, minCol, dataRows, width)
+    // Derive nextSno by scanning S.No. column upward from lastDataRow
+    if (colIndex.sno != null) {
+      const snoData = sheet
+        .getRange(headerRow + 1, colIndex.sno + 1, dataRows, 1)
         .getValues();
-
-      const snoOffset    = snoCol    + 1 - minCol;
-      const funnelOffset = funnelCol + 1 - minCol;
-
-      for (let i = data.length - 1; i >= 0; i--) {
-        if (data[i][funnelOffset] !== "") {
-          lastDataRow = headerRow + 1 + i;
-          const n = parseInt(data[i][snoOffset], 10);
-          nextSno = isNaN(n) ? 1 : n + 1;
-          break;
-        }
+      for (let i = snoData.length - 1; i >= 0; i--) {
+        const n = parseInt(snoData[i][0], 10);
+        if (!isNaN(n)) { nextSno = n + 1; break; }
       }
     }
 
