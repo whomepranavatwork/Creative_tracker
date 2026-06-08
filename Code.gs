@@ -352,8 +352,8 @@ function addEntries(payload) {
     col("ytAdsStatus",     ()     => "No");
 
     // Write contiguous blocks of owned columns in one setValues call each.
-    // Columns with gaps > 1 start a new block. This keeps API calls to 2–4
-    // while never writing to unowned columns (which may have strict validation).
+    // If a block hits a strict data validation rule, fall back to cell-by-cell
+    // and skip only the offending cell — all other data still writes correctly.
     const sorted = Object.entries(colVals)
       .map(([c, vals]) => ({ c: parseInt(c), vals }))
       .sort((a, b) => a.c - b.c);
@@ -375,7 +375,22 @@ function addEntries(payload) {
         })
       );
 
-      sheet.getRange(firstNewRow, startCol + 1, n, width).setValues(data);
+      try {
+        sheet.getRange(firstNewRow, startCol + 1, n, width).setValues(data);
+      } catch (ve) {
+        if (!ve.message || !ve.message.includes("data validation")) throw ve;
+        // Block contains a strictly-validated cell — write cell-by-cell, skipping conflicts
+        for (let r = 0; r < n; r++) {
+          for (let o = 0; o < width; o++) {
+            const v = data[r][o];
+            if (v === "") continue; // blank writes are safe to skip for new rows
+            try {
+              sheet.getRange(firstNewRow + r, startCol + 1 + o).setValue(v);
+            } catch (_) { /* cell has strict dropdown validation — leave blank */ }
+          }
+        }
+      }
+
       i = j + 1;
     }
 
