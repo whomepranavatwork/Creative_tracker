@@ -284,6 +284,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   cursor: pointer; font-family: inherit; transition: all .15s;
 }
 .fi-ext:hover { background: var(--border); color: var(--accent); border-color: var(--accent); }
+.sel-count { font-size: 11px; color: var(--muted); background: var(--border); border-radius: 10px; padding: 1px 7px; margin-left: 6px; }
 .fi-name-link { color: var(--text); text-decoration: none; }
 .fi-name-link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .td-fname-link { color: var(--text); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -443,7 +444,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   <div class="topbar-title">⚡ Creative Tracker, now quicker</div>
   <div style="display:flex;align-items:center;gap:12px;">
     <div class="topbar-meta" id="today-label"></div>
-    <button id="refresh-btn" onclick="refreshDropdowns()" title="Refresh dropdowns from Buckets tab">↺ Refresh</button>
+    <button id="refresh-btn" onclick="refreshDropdowns()" title="Refresh dropdowns from Buckets tab">↺ Refresh dropdowns</button>
   </div>
 </div>
 
@@ -486,7 +487,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 </div>
 
 <!-- ── Status ── -->
-<div id="status"></div>
+<div id="status" aria-live="polite" aria-atomic="true"></div>
 
 <!-- ── Main ── -->
 <div class="main">
@@ -614,12 +615,12 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           <div id="all_narrative_wrap"></div>
         </div>
         <div class="field">
-          <label>Ad Format</label>
+          <label>Ad Format <span class="req">*</span></label>
           <div id="all_adFormat_wrap"></div>
         </div>
       </div>
       <div class="fl-hd">
-        <div class="fl-label">Choose files to be added</div>
+        <div class="fl-label">Choose files to be added <span id="sel-count-pill" class="sel-count"></span></div>
         <div class="fl-actions">
           <button class="btn-xs" onclick="setAllChecked(true)">Select all</button>
           <button class="btn-xs" onclick="setAllChecked(false)">Deselect all</button>
@@ -642,7 +643,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
               <th class="col-sel">Funnel <span class="req">*</span></th>
               <th class="col-sel">Ratio</th>
               <th class="col-wide">Narrative <span class="req">*</span></th>
-              <th class="col-wide">Format</th>
+              <th class="col-wide">Format <span class="req">*</span></th>
             </tr>
           </thead>
           <tbody id="cuts-body"></tbody>
@@ -665,7 +666,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 </div>
 
 <!-- ── Video player modal ── -->
-<div id="vid-modal" style="display:none;" onclick="if(event.target===this)_closeVid()">
+<div id="vid-modal" role="dialog" aria-modal="true" aria-labelledby="vid-name" style="display:none;" onclick="if(event.target===this)_closeVid()">
   <div class="vid-box">
     <div class="vid-hd">
       <span class="vid-hd-name" id="vid-name"></span>
@@ -685,6 +686,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   let personMap      = {};
   let tabProductMap  = {};
   let currentTracker = "";
+  let _vidPrevFocus  = null;
   let _folderLoading = false;
 
   const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy","canLive"];
@@ -788,16 +790,17 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   // ── Refresh dropdowns ────────────────────────────────────
   function refreshDropdowns() {
+    if (files.length > 0 && !confirm("Refreshing dropdowns will clear your loaded folder and cut selections. Continue?")) return;
     const btn = document.getElementById("refresh-btn");
     btn.disabled = true; btn.textContent = "↺ Refreshing…";
     google.script.run
       .withSuccessHandler(data => {
-        btn.disabled = false; btn.textContent = "↺ Refresh";
+        btn.disabled = false; btn.textContent = "↺ Refresh dropdowns";
         applyTrackerData(data);
         showBanner("Dropdowns refreshed from Buckets tab.", "ok");
       })
       .withFailureHandler(err => {
-        btn.disabled = false; btn.textContent = "↺ Refresh";
+        btn.disabled = false; btn.textContent = "↺ Refresh dropdowns";
         showBanner("Refresh failed: " + err.message, "err");
       })
       .refreshCache(currentTracker);
@@ -998,6 +1001,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       const el = document.getElementById("sfa_include_" + i);
       if (el) el.checked = checked;
     });
+    updateSubMeta();
   }
 
   // ── Build per-cut table ──────────────────────────────────
@@ -1012,6 +1016,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       const tdChk = document.createElement("td"); tdChk.className = "td-chk";
       const chk = document.createElement("input"); chk.type = "checkbox";
       chk.id = "pct_include_" + i; chk.checked = true;
+      chk.addEventListener("change", updateSubMeta);
       tdChk.appendChild(chk); tr.appendChild(tdChk);
 
       const tdNum = document.createElement("td"); tdNum.className = "td-num";
@@ -1022,7 +1027,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       fname.textContent = f.name; fname.title = f.name;
       fname.href = f.url; fname.target = "_blank"; fname.rel = "noopener noreferrer";
       const fplay  = document.createElement("button");
-      fplay.className = "fi-ext"; fplay.textContent = "▶"; fplay.title = "Play video";
+      fplay.className = "fi-ext";
+      fplay.textContent = _isVideo(f.name) ? "▶" : "↗";
+      fplay.title = _isVideo(f.name) ? "Play video" : "Preview file";
       fplay.addEventListener("click", (e) => { e.stopPropagation(); openVid(f.id, f.name, f.url); });
       tdFile.appendChild(fname); tdFile.appendChild(fplay); tr.appendChild(tdFile);
 
@@ -1048,13 +1055,16 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       const item = document.createElement("label"); item.className = "file-item";
       const chk  = document.createElement("input"); chk.type = "checkbox";
       chk.id = "sfa_include_" + i; chk.checked = true;
+      chk.addEventListener("change", updateSubMeta);
       const num  = document.createElement("span"); num.className = "fi-num";
       num.textContent = String(i+1).padStart(2,"0");
       const span = document.createElement("a"); span.className = "fi-name fi-name-link";
       span.textContent = f.name; span.title = f.name;
       span.href = f.url; span.target = "_blank"; span.rel = "noopener noreferrer";
       const ext  = document.createElement("button");
-      ext.className = "fi-ext"; ext.textContent = "▶"; ext.title = "Play video";
+      ext.className = "fi-ext";
+      ext.textContent = _isVideo(f.name) ? "▶" : "↗";
+      ext.title = _isVideo(f.name) ? "Play video" : "Preview file";
       ext.addEventListener("click", e => { e.stopPropagation(); openVid(f.id, f.name, f.url); });
       item.appendChild(chk); item.appendChild(num); item.appendChild(span); item.appendChild(ext);
       list.appendChild(item);
@@ -1104,14 +1114,31 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     return sel.value === "__custom__" ? "" : sel.value;
   }
 
+  function updateSelCount() {
+    const sameForAll = document.getElementById("same-for-all").checked;
+    let selected = 0;
+    files.forEach((_, i) => {
+      const id = sameForAll ? "sfa_include_" + i : "pct_include_" + i;
+      const el = document.getElementById(id);
+      if (el && el.checked) selected++;
+    });
+    const pill = document.getElementById("sel-count-pill");
+    if (pill) pill.textContent = files.length ? selected + " / " + files.length : "";
+    return selected;
+  }
+
   function updateSubMeta() {
-    const tab = document.getElementById("tab-name").value;
-    const n   = files.length;
-    if (!n) return;
+    const tab      = document.getElementById("tab-name").value;
+    const total    = files.length;
+    if (!total) return;
+    const selected = updateSelCount();
+    const product  = (document.getElementById("product")?.value || "").trim();
     document.getElementById("sub-main").textContent =
-      `Adding ${n} entr${n === 1 ? "y" : "ies"} to ${tab} (${currentTracker})`;
+      selected + " of " + total + " file" + (total === 1 ? "" : "s") +
+      " → " + tab + " (" + currentTracker + ")" +
+      (product ? "  ·  " + product : "");
     document.getElementById("sub-sub").textContent =
-      sheetCtx.nextSno ? `Starting at S.No. ${sheetCtx.nextSno}` : "";
+      sheetCtx.nextSno ? "Starting at S.No. " + sheetCtx.nextSno : "";
   }
 
   // ── LocalStorage ─────────────────────────────────────────
@@ -1234,6 +1261,15 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       return;
     }
 
+    const missingAdFormat = cuts.map((c, i) => !c.adFormat ? i + 1 : null).filter(n => n !== null);
+    if (missingAdFormat.length) {
+      const adFormatId = sameForAll ? "all_adFormat_wrap" : ("adFormat_" + (missingAdFormat[0] - 1));
+      markFieldError(adFormatId);
+      scrollToField(adFormatId);
+      showBanner(`Ad Format missing for file${missingAdFormat.length > 1 ? "s" : ""} #${missingAdFormat.join(", #")}.`, "err");
+      return;
+    }
+
     if (!cuts.length) { showBanner("No files selected.", "err"); return; }
 
     const btn = document.getElementById("submit-btn-main");
@@ -1324,12 +1360,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   // ── Video player ─────────────────────────────────────────
+  function _isVideo(name) {
+    return /\.(mp4|mov|avi|mkv|webm|m4v|flv|wmv|3gp)$/i.test(name);
+  }
+
   function openVid(id, name, url) {
-    document.getElementById("vid-name").textContent       = name;
-    document.getElementById("vid-drive-link").href        = url;
-    document.getElementById("vid-iframe").src             =
+    _vidPrevFocus = document.activeElement;
+    document.getElementById("vid-name").textContent     = name;
+    document.getElementById("vid-drive-link").href      = url;
+    document.getElementById("vid-iframe").src           =
       "https://drive.google.com/file/d/" + id + "/preview";
-    document.getElementById("vid-modal").style.display   = "flex";
+    const modal = document.getElementById("vid-modal");
+    modal.style.display = "flex";
+    setTimeout(() => { const c = modal.querySelector(".vid-close"); if (c) c.focus(); }, 50);
     document.addEventListener("keydown", _vidEsc);
   }
 
@@ -1337,6 +1380,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("vid-modal").style.display = "none";
     document.getElementById("vid-iframe").src          = "";
     document.removeEventListener("keydown", _vidEsc);
+    if (_vidPrevFocus) { _vidPrevFocus.focus(); _vidPrevFocus = null; }
   }
 
   function _vidEsc(e) { if (e.key === "Escape") _closeVid(); }
