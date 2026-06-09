@@ -299,13 +299,13 @@ function _computeLiveState(sheet, colIndex, headerRow) {
       const v = data[i][c - minC];
       return typeof v === "string" && v.startsWith("https://");
     });
-    // Ad name: formula produces "" for blank rows; partial rows produce a bare number with no "_"
+    // Ad name: full name has 6+ "_"-separated segments; partial (e.g. advance_regime_00176) has 3
     const hasAdName = adNameCol != null && (function() {
       const v = String(data[i][adNameCol - minC] || "");
-      return v.length > 0 && v.includes("_");
+      return v.split("_").length >= 6;
     })();
 
-    if (hasDrive || hasAdName) { lastDataRow = headerRow + 1 + i; break; }
+    if (hasDrive && hasAdName) { lastDataRow = headerRow + 1 + i; break; }
   }
 
   // nextSno: read from the sno cell at lastDataRow (sequential — no full-column scan needed)
