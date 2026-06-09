@@ -625,3 +625,55 @@ function extractDriveFolderId(url) {
   const m = String(url).match(/folders\/([a-zA-Z0-9_-]+)/);
   return m ? m[1] : null;
 }
+
+// ── Debug helper — run from Apps Script editor, check Logs ──────
+// Usage: debugLiveState("Nutrition", "Creatine")
+function debugLiveState(trackerName, tabName) {
+  const ss    = getSpreadsheetFor(trackerName);
+  const sheet = ss.getSheetByName(tabName);
+  const det   = detectHeaders(sheet);
+  const ci    = det.colIndex;
+  const hr    = det.headerRow;
+
+  Logger.log("headerRow: " + hr);
+  Logger.log("colIndex: " + JSON.stringify(ci));
+  Logger.log("sheet.getLastRow(): " + sheet.getLastRow());
+
+  const scanEnd  = Math.min(sheet.getLastRow(), hr + DATA_SCAN_LIMIT);
+  const scanRows = scanEnd - hr;
+  Logger.log("scanRows (capped at " + DATA_SCAN_LIMIT + "): " + scanRows);
+
+  const driveCols = [ci.drive45, ci.drive916].filter(c => c != null);
+  const adNameCol = ci.adName != null ? ci.adName : null;
+  const snoCol    = ci.sno    != null ? ci.sno    : null;
+  const scanCols  = [...driveCols, ...(adNameCol != null ? [adNameCol] : []),
+                     ...(snoCol    != null ? [snoCol]    : [])];
+  Logger.log("driveCols: " + JSON.stringify(driveCols));
+  Logger.log("adNameCol: " + adNameCol);
+  Logger.log("snoCol: " + snoCol);
+
+  if (scanCols.length === 0) { Logger.log("No scan cols found — aborting"); return; }
+
+  const minC = Math.min(...scanCols);
+  const maxC = Math.max(...scanCols);
+  const data = sheet.getRange(hr + 1, minC + 1, scanRows, maxC - minC + 1).getValues();
+
+  // Sample first 5 and last 5 rows of scan
+  Logger.log("--- First 5 scan rows ---");
+  for (let i = 0; i < Math.min(5, data.length); i++) {
+    const driveVals = driveCols.map(c => data[i][c - minC]);
+    const adVal     = adNameCol != null ? data[i][adNameCol - minC] : "N/A";
+    const snoVal    = snoCol    != null ? data[i][snoCol - minC]    : "N/A";
+    Logger.log("  row " + (hr+1+i) + ": drive=" + JSON.stringify(driveVals) + " adName=" + JSON.stringify(String(adVal).slice(0,40)) + " sno=" + JSON.stringify(snoVal));
+  }
+  Logger.log("--- Last 5 scan rows ---");
+  for (let i = Math.max(0, data.length - 5); i < data.length; i++) {
+    const driveVals = driveCols.map(c => data[i][c - minC]);
+    const adVal     = adNameCol != null ? data[i][adNameCol - minC] : "N/A";
+    const snoVal    = snoCol    != null ? data[i][snoCol - minC]    : "N/A";
+    Logger.log("  row " + (hr+1+i) + ": drive=" + JSON.stringify(driveVals) + " adName=" + JSON.stringify(String(adVal).slice(0,40)) + " sno=" + JSON.stringify(snoVal));
+  }
+
+  const ls = _computeLiveState(sheet, ci, hr);
+  Logger.log("RESULT → lastDataRow: " + ls.lastDataRow + ", nextSno: " + ls.nextSno + ", totalRows: " + ls.totalRows);
+}
