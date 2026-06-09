@@ -260,43 +260,59 @@ function getSheetContext(tabName, trackerName) {
 }
 
 // Scans the sheet to find lastDataRow, nextSno, totalRows.
-// Uses S.No. column (never formula-filled) as the primary row-presence signal,
-// with drive link / date columns as fallbacks. This prevents sheets that
-// pre-fill the date column with formulas from reporting a falsely high lastDataRow.
+//
+// Signals used (most reliable first):
+//   1. Drive link columns — never pre-filled; only contain real https:// URLs when submitted.
+//   2. Ad name column   — formula returns "" for blank rows, bare number (no "_") for partial rows.
+//      A fully-formed ad name always contains "_" (e.g. "advance_regime_bof_int_...").
+//
+// Scan cap: only reads the first DATA_SCAN_LIMIT rows from headerRow.
+// ~300 real entries today, 10-15/day → 2000 gives ~1-year headroom without reading
+// thousands of template/stray rows that push sheet.getLastRow() far down.
+const DATA_SCAN_LIMIT = 2000;
+
 function _computeLiveState(sheet, colIndex, headerRow) {
-  const lastRow  = sheet.getLastRow();
-  const dataRows = lastRow - headerRow;
-  let nextSno    = 1;
+  const lastRow   = sheet.getLastRow();
+  const scanEnd   = Math.min(lastRow, headerRow + DATA_SCAN_LIMIT);
+  const scanRows  = scanEnd - headerRow;
+  let nextSno     = 1;
   let lastDataRow = headerRow;
 
-  if (dataRows > 0) {
-    const signalCols = [colIndex.drive916, colIndex.drive45, colIndex.date].filter(c => c != null);
-    const hasSno     = colIndex.sno != null;
-    const scanCols   = hasSno ? [...signalCols, colIndex.sno] : [...signalCols];
+  if (scanRows <= 0) return { nextSno, lastDataRow, totalRows: 0 };
 
-    if (scanCols.length > 0) {
-      const minC   = Math.min(...scanCols);
-      const maxC   = Math.max(...scanCols);
-      const data   = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
-      const snoOff = hasSno ? colIndex.sno - minC : -1;
+  const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null);
+  const adNameCol = colIndex.adName != null ? colIndex.adName : null;
+  const snoCol    = colIndex.sno    != null ? colIndex.sno    : null;
+  const scanCols  = [...driveCols,
+                     ...(adNameCol != null ? [adNameCol] : []),
+                     ...(snoCol    != null ? [snoCol]    : [])];
 
-      // A row "has data" if any drive/date signal col is non-empty OR sno is a positive integer.
-      // Checking sno (a pure-write column) avoids false positives from pre-filled date formulas.
-      for (let i = data.length - 1; i >= 0; i--) {
-        const hasSig = signalCols.some(c => data[i][c - minC] !== "");
-        const hasSnoVal = hasSno && parseInt(data[i][snoOff], 10) > 0;
-        if (hasSig || hasSnoVal) { lastDataRow = headerRow + 1 + i; break; }
-      }
+  if (scanCols.length === 0) return { nextSno, lastDataRow, totalRows: scanRows };
 
-      if (hasSno && lastDataRow > headerRow) {
-        let maxSno = 0;
-        for (let i = 0; i <= lastDataRow - headerRow - 1; i++) {
-          const n = parseInt(data[i][snoOff], 10);
-          if (!isNaN(n) && n > maxSno) maxSno = n;
-        }
-        nextSno = maxSno + 1;
-      }
-    }
+  const minC = Math.min(...scanCols);
+  const maxC = Math.max(...scanCols);
+  const data = sheet.getRange(headerRow + 1, minC + 1, scanRows, maxC - minC + 1).getValues();
+
+  for (let i = data.length - 1; i >= 0; i--) {
+    // Drive link: real submission only if it's an https:// URL
+    const hasDrive = driveCols.some(c => {
+      const v = data[i][c - minC];
+      return typeof v === "string" && v.startsWith("https://");
+    });
+    // Ad name: formula produces "" for blank rows; partial rows produce a bare number with no "_"
+    const hasAdName = adNameCol != null && (function() {
+      const v = String(data[i][adNameCol - minC] || "");
+      return v.length > 0 && v.includes("_");
+    })();
+
+    if (hasDrive || hasAdName) { lastDataRow = headerRow + 1 + i; break; }
+  }
+
+  // nextSno: read from the sno cell at lastDataRow (sequential — no full-column scan needed)
+  if (snoCol != null && lastDataRow > headerRow) {
+    const snoVal = data[lastDataRow - headerRow - 1][snoCol - minC];
+    const n = parseInt(snoVal, 10);
+    nextSno = isNaN(n) ? lastDataRow - headerRow + 1 : n + 1;
   }
 
   return { nextSno, lastDataRow, totalRows: lastDataRow - headerRow };
@@ -367,7 +383,8 @@ function addEntries(payload) {
       const existing = sheet
         .getRange(firstNewRow, checkCol + 1, cuts.length, 1)
         .getValues();
-      const conflict = existing.findIndex(r => r[0] !== "");
+      // Only a real https:// URL counts — ignores pre-filled placeholder values like 'None'/'No'
+      const conflict = existing.findIndex(r => typeof r[0] === "string" && r[0].startsWith("https://"));
       if (conflict !== -1) {
         return {
           ok: false,
