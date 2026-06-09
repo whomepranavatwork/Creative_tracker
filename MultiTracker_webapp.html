@@ -1053,7 +1053,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       const span = document.createElement("a"); span.className = "fi-name fi-name-link";
       span.textContent = f.name; span.title = f.name;
       span.href = f.url; span.target = "_blank"; span.rel = "noopener noreferrer";
-      span.addEventListener("click", e => e.stopPropagation());
       const ext  = document.createElement("button");
       ext.className = "fi-ext"; ext.textContent = "▶"; ext.title = "Play video";
       ext.addEventListener("click", e => { e.stopPropagation(); openVid(f.id, f.name, f.url); });
