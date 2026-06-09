@@ -629,6 +629,8 @@ function extractDriveFolderId(url) {
 // ── Debug helper — run from Apps Script editor, check Logs ──────
 // Usage: debugLiveState("Nutrition", "Creatine")
 function debugLiveState(trackerName, tabName) {
+  trackerName = trackerName || "Nutrition";
+  tabName     = tabName     || "Creatine";
   const ss    = getSpreadsheetFor(trackerName);
   const sheet = ss.getSheetByName(tabName);
   const det   = detectHeaders(sheet);
