@@ -155,6 +155,20 @@ body {
   text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px;
 }
 .hint { font-size: 10px; color: var(--light); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.req  { color: var(--red); margin-left: 1px; font-weight: 700; }
+.field.field-err > label { color: var(--red); }
+.field.field-err input[type=text],
+.field.field-err input[type=date],
+.field.field-err select {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(217,48,37,.12);
+  animation: fieldShake .3s ease;
+}
+@keyframes fieldShake {
+  0%,100% { transform: translateX(0); }
+  25%,75% { transform: translateX(-4px); }
+  50%     { transform: translateX(4px); }
+}
 .field input[type=text],
 .field input[type=date],
 .field select {
@@ -457,7 +471,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     </div>
 
     <div class="field">
-      <label>Product Name</label>
+      <label>Product Name <span class="req">*</span></label>
       <select id="product"></select>
     </div>
 
@@ -467,18 +481,18 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         <input type="date" id="date">
       </div>
       <div class="field">
-        <label>INT / INF</label>
+        <label>INT / INF <span class="req">*</span></label>
         <select id="intInf"></select>
       </div>
       <div class="field">
-        <label>Ad Type</label>
+        <label>Ad Type <span class="req">*</span></label>
         <select id="adType"></select>
       </div>
     </div>
 
     <div class="g2 mt">
       <div class="field">
-        <label>Language</label>
+        <label>Language <span class="req">*</span></label>
         <select id="language"></select>
       </div>
       <div class="field" id="field-canLive">
@@ -491,7 +505,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class="hint">Instagram auto-fills</span></label>
+        <label>Person Full Name <span class="req">*</span> <span class="hint">Instagram auto-fills</span></label>
         <select id="person" onchange="onPersonInput()"></select>
       </div>
       <div class="field">
@@ -506,11 +520,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         <select id="creatorType"></select>
       </div>
       <div class="field">
-        <label>Onboarding Month</label>
+        <label>Onboarding Month <span class="req" id="req-onboarding" style="display:none;">*</span></label>
         <select id="onboardingMonth"></select>
       </div>
       <div class="field">
-        <label>Raised By</label>
+        <label>Raised By <span class="req">*</span></label>
         <select id="raisedBy"></select>
       </div>
     </div>
@@ -539,7 +553,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div id="all-same-panel">
       <div class="sfa-grid">
         <div class="field">
-          <label>Funnel</label>
+          <label>Funnel <span class="req">*</span></label>
           <select id="all_funnel"></select>
         </div>
         <div class="field">
@@ -547,7 +561,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           <div id="all_ratio_wrap"></div>
         </div>
         <div class="field">
-          <label>Narrative</label>
+          <label>Narrative <span class="req">*</span></label>
           <div id="all_narrative_wrap"></div>
         </div>
         <div class="field">
@@ -576,9 +590,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
               <th class="col-chk"></th>
               <th class="col-num">#</th>
               <th class="col-file">File</th>
-              <th class="col-sel">Funnel</th>
+              <th class="col-sel">Funnel <span class="req">*</span></th>
               <th class="col-sel">Ratio</th>
-              <th class="col-wide">Narrative</th>
+              <th class="col-wide">Narrative <span class="req">*</span></th>
               <th class="col-wide">Format</th>
             </tr>
           </thead>
@@ -818,8 +832,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onPersonInput() {
-    const ig = personMap[document.getElementById("person").value.trim()];
+    const person = document.getElementById("person").value.trim();
+    const ig     = personMap[person];
     document.getElementById("instagram").value = ig || "";
+    const reqEl = document.getElementById("req-onboarding");
+    if (reqEl) reqEl.style.display = (person && person !== "None") ? "" : "none";
   }
 
   // ── Auto-load on paste ───────────────────────────────────
@@ -1086,19 +1103,21 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     };
 
     const required = [
-      { val: shared.product,  label: "Product Name" },
-      { val: shared.intInf,   label: "INT / INF" },
-      { val: shared.adType,   label: "Ad Type" },
-      { val: shared.language, label: "Language" },
-      { val: shared.person,   label: "Person Full Name" },
-      { val: shared.raisedBy, label: "Raised By" }
+      { val: shared.product,  label: "Product Name",       id: "product" },
+      { val: shared.intInf,   label: "INT / INF",           id: "intInf" },
+      { val: shared.adType,   label: "Ad Type",             id: "adType" },
+      { val: shared.language, label: "Language",            id: "language" },
+      { val: shared.person,   label: "Person Full Name",    id: "person" },
+      { val: shared.raisedBy, label: "Raised By",           id: "raisedBy" }
     ];
     if (shared.person && shared.person !== "None") {
-      required.push({ val: shared.onboardingMonth, label: "Inf Onboarding Month" });
+      required.push({ val: shared.onboardingMonth, label: "Inf Onboarding Month", id: "onboardingMonth" });
     }
-    const missing = required.filter(f => !f.val).map(f => f.label);
+    const missing = required.filter(f => !f.val);
     if (missing.length) {
-      showBanner("Please fill in: " + missing.join(", "), "err");
+      missing.forEach(f => markFieldError(f.id));
+      scrollToField(missing[0].id);
+      showBanner("Please fill in: " + missing.map(f => f.label).join(", "), "err");
       return;
     }
 
@@ -1126,12 +1145,18 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     });
 
     if (missingFunnel.length) {
+      const funnelId = sameForAll ? "all_funnel" : ("funnel_" + (missingFunnel[0] - 1));
+      markFieldError(funnelId);
+      scrollToField(funnelId);
       showBanner(`Funnel Type missing for file${missingFunnel.length > 1 ? "s" : ""} #${missingFunnel.join(", #")}. Please select a Funnel for each included file.`, "err");
       return;
     }
 
     const missingNarrative = cuts.map((c, i) => !c.narrative ? i + 1 : null).filter(n => n !== null);
     if (missingNarrative.length) {
+      const narrativeId = sameForAll ? "all_narrative_wrap" : ("narrative_" + (missingNarrative[0] - 1));
+      markFieldError(narrativeId);
+      scrollToField(narrativeId);
       showBanner(`Broad Narrative missing for file${missingNarrative.length > 1 ? "s" : ""} #${missingNarrative.join(", #")}.`, "err");
       return;
     }
@@ -1176,6 +1201,27 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         ytAdNameFormulaRow: sheetCtx.ytAdNameFormulaRow,
         shared, cuts
       });
+  }
+
+  // ── Field error helpers ──────────────────────────────────
+  function markFieldError(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const field = el.closest(".field") || el;
+    field.classList.add("field-err");
+    const clear = () => {
+      field.classList.remove("field-err");
+      el.removeEventListener("change", clear);
+      el.removeEventListener("input",  clear);
+    };
+    el.addEventListener("change", clear);
+    el.addEventListener("input",  clear);
+  }
+
+  function scrollToField(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    (el.closest(".field") || el).scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   // ── Banners ──────────────────────────────────────────────
