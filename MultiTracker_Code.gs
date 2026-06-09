@@ -25,8 +25,15 @@ const TRACKERS = {
     tabProductMap: {
       "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
     }
+  },
+  "Nutrition": {
+    spreadsheetId: "1wOYhs0IB24u_fIrrssyZaAuFvpbaItjHgiDIkXBv0WU",
+    tabProductMap: {
+      "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
+      "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
+      "Magnesium": ["Magnesium Gummies", "Creatine Powder"]
+    }
   }
-  // "Nutrition": { spreadsheetId: "REPLACE_WITH_ID", tabProductMap: { ... } }
 };
 
 const HEADER_SEARCH_LIMIT = 20;
