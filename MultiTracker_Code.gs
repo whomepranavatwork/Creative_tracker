@@ -82,7 +82,7 @@ function getSpreadsheetFor(trackerName) {
 
 // ── Web app entry point ───────────────────────────────────────
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile("webapp")
+  return HtmlService.createHtmlOutputFromFile("MultiTracker_webapp")
     .setTitle("Creative Tracker")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
@@ -99,13 +99,22 @@ function getTrackers() {
 
 // ── Called when user switches tracker ────────────────────────
 // Reads from Script Properties; falls back to sheet on cache miss.
+// bc1_ stores everything except person data; bc1p_ stores personMap + person list
+// (split to stay under the 9 KB per-property Apps Script limit).
 function selectTracker(trackerName) {
   const props = PropertiesService.getScriptProperties();
-  const key   = _spKey("bc1_", trackerName);
-  const raw   = props.getProperty(key);
+  const raw   = props.getProperty(_spKey("bc1_", trackerName));
   if (raw) {
     try {
       const cached = JSON.parse(raw);
+      try {
+        const rawP = props.getProperty(_spKey("bc1p_", trackerName));
+        if (rawP) {
+          const cachedP = JSON.parse(rawP);
+          cached.personMap = cachedP.personMap;
+          cached.dropdownOptions.person = cachedP.person;
+        }
+      } catch (e) { /* person data unavailable — person dropdown shows only "None" */ }
       cached.trackerName = trackerName;
       return cached;
     } catch (e) { /* fall through */ }
@@ -142,18 +151,25 @@ function _loadBucketsFromSheet(trackerName) {
                         "Trust", "Features", "Why MM is different", "Safety",
                         "Science", "BeforeAfter", "Transplant or PRP",
                         "Product First", "Results/Assurance/ProductFirst"],
-      creatorType:     ["", "Meta Creator", "Hair Warrior"],
+      creatorType:     ["", "Meta Creator", "YT Creator", "Hair Warrior"],
       onboardingMonth: ["", "Oct'25", "Nov'25", "Dec'25", "Jan'26", "Feb'26",
-                        "March'26", "April'26", "May'26", "June'26"],
+                        "March'26", "April'26", "May'26", "June'26", "July'26"],
       canLive:         ["Yes", "No"],
       ratio:           ["9:16", "4:5", "Both"]
     }
   };
 
-  try {
-    PropertiesService.getScriptProperties()
-      .setProperty(_spKey("bc1_", trackerName), JSON.stringify(result));
-  } catch (e) { /* ignore write errors — will re-read next time */ }
+  // Split person data into a separate key to stay under the 9 KB property-value limit.
+  // bc1_  = everything except personMap and person dropdown list
+  // bc1p_ = personMap + person dropdown list (can be large for trackers with many creators)
+  const personPayload = { personMap: buckets.personMap, person: result.dropdownOptions.person };
+  const mainResult    = Object.assign({}, result, {
+    personMap:       {},
+    dropdownOptions: Object.assign({}, result.dropdownOptions, { person: ["None"] })
+  });
+  const sp = PropertiesService.getScriptProperties();
+  try { sp.setProperty(_spKey("bc1_",  trackerName), JSON.stringify(mainResult));    } catch (e) {}
+  try { sp.setProperty(_spKey("bc1p_", trackerName), JSON.stringify(personPayload)); } catch (e) {}
 
   return result;
 }
@@ -322,8 +338,10 @@ function _computeLiveState(sheet, colIndex, headerRow) {
       const v = String(data[i][adNameCol - minC] || "");
       return v.split("_").length >= 6;
     })();
-    // Require both signals when both columns exist; fall back to whichever is present
-    const isReal = needDrive && needAdName ? hasDrive && hasAdName
+    // A row is real if EITHER signal fires — a drive URL is conclusive on its own even if
+    // the ad name formula hasn't fully resolved (e.g. partial value on the latest row).
+    // The 6-segment threshold still guards against pre-filled partial ad names.
+    const isReal = needDrive && needAdName ? hasDrive || hasAdName
                  : needDrive               ? hasDrive
                  :                          hasAdName;
     if (isReal) { lastDataRow = headerRow + 1 + i; break; }
@@ -388,17 +406,34 @@ function addEntries(payload) {
     const trackerName = payload.trackerName;
     const shared      = payload.shared;
     const cuts        = payload.cuts;
-    const colIndex    = payload.colIndex;  // static schema — safe to trust from client
-    const headerRow   = payload.headerRow; // static schema — safe to trust from client
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
-    if (!colIndex || headerRow == null) {
-      return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
-    }
 
     const ss    = getSpreadsheetFor(trackerName);
     const sheet = ss.getSheetByName(tabName);
     if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
+
+    // Load schema server-side — never trust client-sent colIndex / headerRow.
+    // If the sheet structure changed after the client loaded, client values would
+    // silently write to wrong columns.
+    const props = PropertiesService.getScriptProperties();
+    const scKey = _spKey("sc1_", trackerName, tabName);
+    let sc = null;
+    try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) {}
+    if (!sc) {
+      const detected = detectHeaders(sheet);
+      sc = { headerRow: detected.headerRow, colIndex: detected.colIndex,
+             adNameFormulaRow: null, ytAdNameFormulaRow: null };
+      try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
+    }
+    const colIndex  = sc.colIndex;
+    const headerRow = sc.headerRow;
+    const adNameFormulaRow   = sc.adNameFormulaRow;
+    const ytAdNameFormulaRow = sc.ytAdNameFormulaRow;
+
+    if (!colIndex || headerRow == null) {
+      return { ok: false, msg: "Could not load sheet schema — refresh the page and try again." };
+    }
 
     // Acquire script lock — serialises concurrent submits so each recomputes fresh row position
     const lock = LockService.getScriptLock();
@@ -431,7 +466,15 @@ function addEntries(payload) {
       }
 
       const lastCol = sheet.getLastColumn();
-      const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      const tz      = Session.getScriptTimeZone();
+
+      // Parse the submitted date string into a real Date object so Sheets stores a
+      // date serial rather than text — preserves sorting, filtering, and date formulas.
+      let dateVal;
+      try {
+        dateVal = Utilities.parseDate(shared.date || "", tz, "dd/MM/yyyy");
+        if (isNaN(dateVal.getTime())) dateVal = new Date();
+      } catch (e) { dateVal = new Date(); }
 
       const configSkip = (TRACKERS[trackerName].skipColumns || [])
         .map(k => colIndex[k]).filter(c => c != null);
@@ -452,7 +495,7 @@ function addEntries(payload) {
         const row = new Array(lastCol).fill("");
 
         put(row, colIndex.sno,             nextSno + i);
-        put(row, colIndex.date,            shared.date || today);
+        put(row, colIndex.date,            dateVal);
         put(row, colIndex.product,         shared.product);
         put(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
         put(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
@@ -487,18 +530,18 @@ function addEntries(payload) {
 
       setHyperlinks(sheet, firstNewRow, rows, colIndex, skipCols);
 
-      if (colIndex.adName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.adName)) {
+      if (colIndex.adName != null && adNameFormulaRow && !skipCols.has(colIndex.adName)) {
         try {
-          sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1).copyTo(
+          sheet.getRange(adNameFormulaRow, colIndex.adName + 1).copyTo(
             sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
             SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
           );
         } catch (e) { /* protected — skip formula copy */ }
       }
 
-      if (colIndex.ytAdName != null && payload.ytAdNameFormulaRow && !skipCols.has(colIndex.ytAdName)) {
+      if (colIndex.ytAdName != null && ytAdNameFormulaRow && !skipCols.has(colIndex.ytAdName)) {
         try {
-          const ytSrc = sheet.getRange(payload.ytAdNameFormulaRow, colIndex.ytAdName + 1);
+          const ytSrc = sheet.getRange(ytAdNameFormulaRow, colIndex.ytAdName + 1);
           if (ytSrc.getFormula()) {
             ytSrc.copyTo(
               sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
@@ -513,7 +556,7 @@ function addEntries(payload) {
       const newTotalRows   = ls.totalRows + rows.length;
 
       try {
-        PropertiesService.getScriptProperties().setProperty(
+        props.setProperty(
           _spKey("ls1_", trackerName, tabName),
           JSON.stringify({ nextSno: newNextSno, lastDataRow: newLastDataRow, totalRows: newTotalRows })
         );
@@ -545,7 +588,8 @@ function refreshCache(trackerName) {
   if (!t) return { ok: false, msg: "Unknown tracker: " + trackerName };
 
   // Delete all cached keys for this tracker
-  props.deleteProperty(_spKey("bc1_", trackerName));
+  props.deleteProperty(_spKey("bc1_",  trackerName));
+  props.deleteProperty(_spKey("bc1p_", trackerName));
   Object.keys(t.tabProductMap).forEach(function(tabName) {
     props.deleteProperty(_spKey("sc1_", trackerName, tabName));
     props.deleteProperty(_spKey("ls1_", trackerName, tabName));
