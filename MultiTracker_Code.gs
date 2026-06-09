@@ -216,16 +216,17 @@ function getSheetContext(tabName, trackerName) {
     if (!sc) {
       const detected = detectHeaders(sheet);
       sc = {
-        headerRow:        detected.headerRow,
-        colIndex:         detected.colIndex,
-        adNameFormula:    "",
-        adNameFormulaRow: null
+        headerRow:          detected.headerRow,
+        colIndex:           detected.colIndex,
+        adNameFormula:      "",
+        adNameFormulaRow:   null,
+        ytAdNameFormulaRow: null
       };
-      // Scan for ad name formula (rarely changes — cached until manual refresh)
-      if (detected.colIndex.adName != null) {
-        const lastRow = sheet.getLastRow();
-        if (lastRow > detected.headerRow) {
-          const formulaRows = Math.min(lastRow - detected.headerRow, DATA_SCAN_LIMIT);
+      const lastRow = sheet.getLastRow();
+      if (lastRow > detected.headerRow) {
+        const formulaRows = Math.min(lastRow - detected.headerRow, DATA_SCAN_LIMIT);
+        // Scan for Ad Name formula
+        if (detected.colIndex.adName != null) {
           const formulas = sheet
             .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, formulaRows, 1)
             .getFormulas();
@@ -233,6 +234,18 @@ function getSheetContext(tabName, trackerName) {
             if (formulas[i][0]) {
               sc.adNameFormula    = formulas[i][0];
               sc.adNameFormulaRow = detected.headerRow + 1 + i;
+              break;
+            }
+          }
+        }
+        // Independently scan for YT Ad Name formula (may start at a different row)
+        if (detected.colIndex.ytAdName != null) {
+          const ytFormulas = sheet
+            .getRange(detected.headerRow + 1, detected.colIndex.ytAdName + 1, formulaRows, 1)
+            .getFormulas();
+          for (let i = ytFormulas.length - 1; i >= 0; i--) {
+            if (ytFormulas[i][0]) {
+              sc.ytAdNameFormulaRow = detected.headerRow + 1 + i;
               break;
             }
           }
@@ -253,10 +266,11 @@ function getSheetContext(tabName, trackerName) {
     today,
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
-    adNameFormula:   sc.adNameFormula,
-    adNameFormulaRow: sc.adNameFormulaRow,
-    colIndex:        sc.colIndex,
-    headerRow:       sc.headerRow
+    adNameFormula:      sc.adNameFormula,
+    adNameFormulaRow:   sc.adNameFormulaRow,
+    ytAdNameFormulaRow: sc.ytAdNameFormulaRow,
+    colIndex:           sc.colIndex,
+    headerRow:          sc.headerRow
   };
 }
 
@@ -374,127 +388,148 @@ function addEntries(payload) {
     const trackerName = payload.trackerName;
     const shared      = payload.shared;
     const cuts        = payload.cuts;
-    const colIndex    = payload.colIndex;
-    const headerRow   = payload.headerRow;
-    const nextSno     = parseInt(payload.nextSno, 10);
-    const firstNewRow = payload.lastDataRow + 1;
-
-    if (!Number.isFinite(firstNewRow) || firstNewRow < 2) {
-      return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
-    }
+    const colIndex    = payload.colIndex;  // static schema — safe to trust from client
+    const headerRow   = payload.headerRow; // static schema — safe to trust from client
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
+    if (!colIndex || headerRow == null) {
+      return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
+    }
 
     const ss    = getSpreadsheetFor(trackerName);
     const sheet = ss.getSheetByName(tabName);
     if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
 
-    const checkCol = colIndex.drive916 != null ? colIndex.drive916 : colIndex.drive45;
-    if (checkCol != null) {
-      const existing = sheet
-        .getRange(firstNewRow, checkCol + 1, cuts.length, 1)
-        .getValues();
-      // Only a real https:// URL counts — ignores pre-filled placeholder values like 'None'/'No'
-      const conflict = existing.findIndex(r => typeof r[0] === "string" && r[0].startsWith("https://"));
-      if (conflict !== -1) {
-        return {
-          ok: false,
-          msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
-        };
+    // Acquire script lock — serialises concurrent submits so each recomputes fresh row position
+    const lock = LockService.getScriptLock();
+    if (!lock.tryLock(10000)) {
+      return { ok: false, msg: "Another submission is in progress — please wait a moment and try again." };
+    }
+
+    try {
+      // Recompute live state inside the lock — never trust client-sent lastDataRow / nextSno
+      const ls          = _computeLiveState(sheet, colIndex, headerRow);
+      const firstNewRow = ls.lastDataRow + 1;
+      const nextSno     = ls.nextSno;
+
+      if (!Number.isFinite(firstNewRow) || firstNewRow < 2) {
+        return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
       }
-    }
 
-    const lastCol  = sheet.getLastColumn();
-    const today    = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+      // Overwrite guard: check BOTH drive columns — a 4:5-only row has an empty drive916 cell
+      // which the old single-column check missed, allowing silent overwrites
+      const driveCheckCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null);
+      for (const checkCol of driveCheckCols) {
+        const existing = sheet.getRange(firstNewRow, checkCol + 1, cuts.length, 1).getValues();
+        const conflict  = existing.findIndex(r => typeof r[0] === "string" && r[0].startsWith("https://"));
+        if (conflict !== -1) {
+          return {
+            ok: false,
+            msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
+          };
+        }
+      }
 
-    const configSkip = (TRACKERS[trackerName].skipColumns || [])
-      .map(k => colIndex[k]).filter(c => c != null);
-    const sheetSkip  = getProtectedCols(sheet, lastCol);
-    const skipCols   = new Set([...configSkip, ...sheetSkip]);
+      const lastCol = sheet.getLastColumn();
+      const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
 
-    const put = (row, col, val) => { if (!skipCols.has(col)) set(row, col, val); };
-    const rows = [];
+      const configSkip = (TRACKERS[trackerName].skipColumns || [])
+        .map(k => colIndex[k]).filter(c => c != null);
+      const sheetSkip  = getProtectedCols(sheet, lastCol);
+      const skipCols   = new Set([...configSkip, ...sheetSkip]);
 
-    cuts.forEach((cut, i) => {
-      const row = new Array(lastCol).fill("");
+      // Track only explicitly-written columns — untracked columns are never touched
+      const writtenCols = new Set();
+      const put = (row, col, val) => {
+        if (col != null && !skipCols.has(col)) {
+          row[col] = val;
+          writtenCols.add(col);
+        }
+      };
+      const rows = [];
 
-      put(row, colIndex.sno,             nextSno + i);
-      put(row, colIndex.date,            shared.date || today);
-      put(row, colIndex.product,         shared.product);
-      put(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
-      put(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
-      put(row, colIndex.live,            "No");
-      put(row, colIndex.canLive,         shared.canLive  || "Yes");
-      put(row, colIndex.raisedBy,        shared.raisedBy || "");
-      put(row, colIndex.funnel,          cut.funnel);
-      put(row, colIndex.intInf,          shared.intInf);
-      put(row, colIndex.adType,          shared.adType);
-      put(row, colIndex.language,        shared.language);
-      put(row, colIndex.person,          shared.person   || "None");
-      put(row, colIndex.narrative,       cut.narrative);
-      put(row, colIndex.adFormat,        cut.adFormat);
-      put(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
-      put(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
-      put(row, colIndex.instagram,       shared.instagram       || "");
-      put(row, colIndex.creatorType,     shared.creatorType     || "");
-      put(row, colIndex.ytLinks,         "");
-      put(row, colIndex.dateTakenLive,   "");
-      put(row, colIndex.ytAdsStatus,     "No");
+      cuts.forEach((cut, i) => {
+        const row = new Array(lastCol).fill("");
 
-      rows.push(row);
-    });
+        put(row, colIndex.sno,             nextSno + i);
+        put(row, colIndex.date,            shared.date || today);
+        put(row, colIndex.product,         shared.product);
+        put(row, colIndex.drive45,         (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "");
+        put(row, colIndex.drive916,        (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "");
+        put(row, colIndex.live,            "No");
+        put(row, colIndex.canLive,         shared.canLive  || "Yes");
+        put(row, colIndex.raisedBy,        shared.raisedBy || "");
+        put(row, colIndex.funnel,          cut.funnel);
+        put(row, colIndex.intInf,          shared.intInf);
+        put(row, colIndex.adType,          shared.adType);
+        put(row, colIndex.language,        shared.language);
+        put(row, colIndex.person,          shared.person   || "None");
+        put(row, colIndex.narrative,       cut.narrative);
+        put(row, colIndex.adFormat,        cut.adFormat);
+        put(row, colIndex.onboardingMonth, shared.onboardingMonth || "");
+        put(row, colIndex.additionalInfo,  shared.additionalInfo  || "");
+        put(row, colIndex.instagram,       shared.instagram       || "");
+        put(row, colIndex.creatorType,     shared.creatorType     || "");
+        put(row, colIndex.ytLinks,         "");
+        put(row, colIndex.dateTakenLive,   "");
+        put(row, colIndex.ytAdsStatus,     "No");
 
-    writeRows(sheet, firstNewRow, rows, lastCol, skipCols);
+        rows.push(row);
+      });
 
-    if (colIndex.sno != null && !skipCols.has(colIndex.sno)) {
-      try {
-        sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
-      } catch (e) { /* protected — skip format */ }
-    }
+      writeRows(sheet, firstNewRow, rows, writtenCols);
 
-    setHyperlinks(sheet, firstNewRow, rows, colIndex);
+      if (colIndex.sno != null && !skipCols.has(colIndex.sno)) {
+        try {
+          sheet.getRange(firstNewRow, colIndex.sno + 1, rows.length, 1).setNumberFormat("00000");
+        } catch (e) { /* protected — skip format */ }
+      }
 
-    if (colIndex.adName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.adName)) {
-      try {
-        const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1);
-        srcCell.copyTo(
-          sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
-          SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
-        );
-      } catch (e) { /* protected — skip formula copy */ }
-    }
+      setHyperlinks(sheet, firstNewRow, rows, colIndex, skipCols);
 
-    if (colIndex.ytAdName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.ytAdName)) {
-      try {
-        const srcCell = sheet.getRange(payload.adNameFormulaRow, colIndex.ytAdName + 1);
-        if (srcCell.getFormula()) {
-          srcCell.copyTo(
-            sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
+      if (colIndex.adName != null && payload.adNameFormulaRow && !skipCols.has(colIndex.adName)) {
+        try {
+          sheet.getRange(payload.adNameFormulaRow, colIndex.adName + 1).copyTo(
+            sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
             SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
           );
-        }
-      } catch (e) { /* protected — skip formula copy */ }
+        } catch (e) { /* protected — skip formula copy */ }
+      }
+
+      if (colIndex.ytAdName != null && payload.ytAdNameFormulaRow && !skipCols.has(colIndex.ytAdName)) {
+        try {
+          const ytSrc = sheet.getRange(payload.ytAdNameFormulaRow, colIndex.ytAdName + 1);
+          if (ytSrc.getFormula()) {
+            ytSrc.copyTo(
+              sheet.getRange(firstNewRow, colIndex.ytAdName + 1, rows.length, 1),
+              SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
+            );
+          }
+        } catch (e) { /* protected — skip formula copy */ }
+      }
+
+      const newLastDataRow = firstNewRow + rows.length - 1;
+      const newNextSno     = nextSno + rows.length;
+      const newTotalRows   = ls.totalRows + rows.length;
+
+      try {
+        PropertiesService.getScriptProperties().setProperty(
+          _spKey("ls1_", trackerName, tabName),
+          JSON.stringify({ nextSno: newNextSno, lastDataRow: newLastDataRow, totalRows: newTotalRows })
+        );
+      } catch (e) { /* ignore cache write failure */ }
+
+      return {
+        ok:  true,
+        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
+        nextSno:     String(newNextSno).padStart(5, "0"),
+        lastDataRow: newLastDataRow,
+        totalRows:   newTotalRows
+      };
+
+    } finally {
+      lock.releaseLock();
     }
-
-    const newLastDataRow = firstNewRow + rows.length - 1;
-    const newNextSno     = nextSno + rows.length;
-    const newTotalRows   = payload.totalRows + rows.length;
-
-    // Update live state cache so next tab switch is instant
-    try {
-      PropertiesService.getScriptProperties().setProperty(
-        _spKey("ls1_", trackerName, tabName),
-        JSON.stringify({ nextSno: newNextSno, lastDataRow: newLastDataRow, totalRows: newTotalRows })
-      );
-    } catch (e) { /* ignore cache write failure */ }
-
-    return {
-      ok:  true,
-      msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
-      nextSno:     String(newNextSno).padStart(5, "0"),
-      lastDataRow: newLastDataRow,
-      totalRows:   newTotalRows
-    };
 
   } catch (e) {
     return { ok: false, msg: e.message + "\n" + e.stack };
@@ -600,24 +635,29 @@ function getProtectedCols(sheet, lastCol) {
   return result;
 }
 
-function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
-  let segStart = null;
-  for (let c = 0; c <= lastCol; c++) {
-    const isSkipped = skipCols.has(c);
-    if (!isSkipped && segStart === null) {
-      segStart = c;
-    } else if ((isSkipped || c === lastCol) && segStart !== null) {
-      const segEnd  = c - 1;
+// Writes only the columns in writtenCols (sorted, batched into contiguous ranges).
+// Untracked columns are never touched — prevents blanking helper/formula columns.
+function writeRows(sheet, firstNewRow, rows, writtenCols) {
+  const cols = [...writtenCols].sort((a, b) => a - b);
+  if (cols.length === 0) return;
+
+  let segStart = cols[0];
+  let segEnd   = cols[0];
+
+  for (let i = 1; i <= cols.length; i++) {
+    if (i < cols.length && cols[i] === segEnd + 1) {
+      segEnd = cols[i];
+    } else {
       const segData = rows.map(function(row) { return row.slice(segStart, segEnd + 1); });
       sheet.getRange(firstNewRow, segStart + 1, rows.length, segEnd - segStart + 1).setValues(segData);
-      segStart = null;
+      if (i < cols.length) { segStart = cols[i]; segEnd = cols[i]; }
     }
   }
 }
 
-function setHyperlinks(sheet, firstNewRow, rows, colIndex) {
+function setHyperlinks(sheet, firstNewRow, rows, colIndex, skipCols) {
   [colIndex.drive45, colIndex.drive916].forEach(col => {
-    if (col == null) return;
+    if (col == null || skipCols.has(col)) return;
     const richValues = rows.map(row => {
       const url = row[col];
       if (!url) return SpreadsheetApp.newRichTextValue().setText("").build();

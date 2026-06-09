@@ -736,6 +736,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function onTabChange() {
+    sheetCtx = {};
     resetFolderOnly();
     const tab = document.getElementById("tab-name").value;
     setProductForTab(tab);
@@ -1170,8 +1171,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         lastDataRow:      sheetCtx.lastDataRow,
         nextSno:          sheetCtx.nextSno,
         totalRows:        sheetCtx.totalRows,
-        adNameFormula:    sheetCtx.adNameFormula,
-        adNameFormulaRow: sheetCtx.adNameFormulaRow,
+        adNameFormula:      sheetCtx.adNameFormula,
+        adNameFormulaRow:   sheetCtx.adNameFormulaRow,
+        ytAdNameFormulaRow: sheetCtx.ytAdNameFormulaRow,
         shared, cuts
       });
   }
