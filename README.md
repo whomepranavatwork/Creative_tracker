@@ -13,18 +13,16 @@ Supports multiple trackers (Hair, Beard, Nutrition) each backed by a separate Go
 |------|---------|
 | `MultiTracker_Code.gs` | Server-side Apps Script: reads sheets, writes rows, serves web app, manages cache |
 | `MultiTracker_webapp.html` | Standalone full-page web app (share this URL with the team) |
-| `Code.gs` | Original single-tracker server code (not used by multi-tracker deployment) |
-| `webapp.html` | Original single-tracker web app (not used by multi-tracker deployment) |
-| `Sidebar.html` | Sidebar version for use inside Google Sheets (not used by multi-tracker deployment) |
 | `.clasp.json` | clasp deployment config (script ID) |
+| `appsscript.json` | Apps Script manifest (runtime, timezone, scopes) |
+| `.github/workflows/deploy-appsscript.yml` | GitHub Actions workflow — auto-deploys to Apps Script on every push to `main` |
 
 ---
 
 ## One-time Setup
 
 1. Open any Google Sheet → **Extensions → Apps Script**
-2. Create two files: `MultiTracker_Code.gs` and `MultiTracker_webapp.html` with contents from this repo  
-   (The Apps Script project does not need to be bound to a specific sheet — it uses `openById` to access all sheets)
+2. The project does not need to be bound to a specific sheet — it uses `openById` to access all sheets
 3. In `MultiTracker_Code.gs`, update the `TRACKERS` registry with the correct `spreadsheetId` for each tracker (see below)
 4. **Deploy → New deployment**
    - Type: **Web app**
@@ -32,9 +30,28 @@ Supports multiple trackers (Hair, Beard, Nutrition) each backed by a separate Go
    - Who has access: Anyone with Google account (or restrict to org)
 5. Copy the URL and share with the team
 
-> The URL is permanent. Subsequent code changes are deployed via **Deploy → Manage deployments → Edit (pencil icon) → Deploy** — same URL, no resharing needed.
+> The URL is permanent. Subsequent code changes pushed to `main` are deployed automatically via GitHub Actions (see below) — redeploy manually via **Deploy → Manage deployments → Edit (pencil icon) → Deploy** only if needed.
 
 > After the first deploy (or after adding a new tracker), run `refreshAllCaches()` once from the Apps Script editor to pre-warm the Script Properties cache for all trackers and tabs.
+
+> **Apps Script API must be enabled** on the deploying Google account: visit `https://script.google.com/home/usersettings` and toggle **Google Apps Script API → On**. Required for clasp to push.
+
+---
+
+## GitHub Actions Auto-Deploy
+
+Every push to `main` triggers `.github/workflows/deploy-appsscript.yml`, which installs clasp and runs `clasp push --force` automatically.
+
+**One-time secret setup:**
+
+1. On your machine: `npx @google/clasp login` → completes OAuth in browser
+2. Copy the full contents of `~/.clasprc.json` (Windows: `%USERPROFILE%\.clasprc.json`)
+3. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
+   - Name: `CLASPRC_JSON`
+   - Value: paste the JSON
+4. Done — all future pushes to `main` auto-deploy
+
+The `refresh_token` in the JSON is long-lived; the secret does not need to be rotated unless you revoke access.
 
 ---
 
@@ -94,7 +111,8 @@ To add a new tracker: add an entry to `TRACKERS`, then run `refreshAllCaches()`.
 - **Tracker pills** appear at the top if more than one tracker is registered; clicking one switches context
 - **Tab pills** show the tabs defined in `tabProductMap` for the active tracker
 - Selecting a tab loads sheet context (entry count, next S.No.) via a single server call
-- Switching tabs **clears the Drive folder and cut details** but **preserves all shared fields** — no rework needed if you pick the wrong tab
+- Switching tabs **clears the Drive folder, cut details, and cached sheet context** immediately — no stale data from the previous tab can carry into a submit
+- Switching tabs **preserves all shared fields** — no rework needed if you pick the wrong tab
 - Switching trackers resets everything including shared fields
 
 ### Product Name (Tab-Driven)
@@ -121,6 +139,8 @@ These apply to every file in the batch:
 - Person Full Name → Instagram auto-fills from `personMap` (Buckets tab column I); clears when switched back to "None"
 - Creator Type, Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
+**Required fields** are marked with a red `*`. Submitting with any required field empty highlights the missing fields and scrolls to the first one.
+
 **localStorage persistence**: INT/INF, Ad Type, Language, Person, Creator Type, Instagram, Raised By, Can Take Live? are saved after each successful submit and restored on next visit.
 
 ### Cut Details (Step 3)
@@ -134,6 +154,8 @@ Each file gets its own row. Per-cut fields:
 
 **Same for all toggle**: on by default — one shared panel with a file checklist. Toggle off for a per-row table with individual dropdowns.
 
+**File list UI**: each file shows its name (clickable — opens the Drive link in a new tab) and a ▶ play button that opens an inline video preview modal without leaving the page.
+
 ### Last-Row Detection
 
 Finding the last real entry (and therefore where to write new rows) is the most critical operation. The logic uses two independent signals and reads at most `DATA_SCAN_LIMIT = 2000` rows from the header downward, regardless of `sheet.getLastRow()` (which can be inflated by stray values or formula pre-fill).
@@ -141,18 +163,28 @@ Finding the last real entry (and therefore where to write new rows) is the most 
 **Signals used (both must be present when both columns exist):**
 
 1. **Drive link column** — only contains an `https://` URL when a real submission was made; never pre-filled
-2. **Ad name column** — the ad name formula (`=LOWER(SUBSTITUTE(TEXTJOIN(...)))`) produces an empty string for blank rows, a short partial string (e.g. `advance_regime_00176`) when only product/S.No. is pre-filled, and a full name with 6+ underscore-separated segments only for complete rows
+2. **Ad name column** — the ad name formula (`=LOWER(SUBSTITUTE(TEXTJOIN(...)))`) produces an empty string for blank rows, a short partial string (e.g. `advance_regime_00176`) when only product/S.No. is pre-filled, and a full name with **6 or more underscore-separated segments** only for complete rows
 
 A row is classified as real only when:
-- Both signals are present → requires **both** a drive URL and a full ad name
+- Both signals present → requires **both** a drive URL and a full ad name (≥ 6 segments)
 - Only drive columns present (no ad name column) → requires drive URL only
 - Only ad name column present (no drive columns) → requires full ad name only
 
 **S.No. column is NOT used as a signal** — it is formula-pre-filled for all rows in the sheet (including template rows far below the last real entry), so `sheet.getLastRow()` and the S.No. column are both unreliable for boundary detection.
 
+### Concurrent Submit Safety
+
+Every submit acquires a **script-level lock** (`LockService.getScriptLock().tryLock(10000)`) before touching the sheet. Inside the lock, `_computeLiveState` is re-run against the live sheet — the client-sent `lastDataRow` and `nextSno` values are never trusted. This eliminates the race condition where two simultaneous submits could target the same rows.
+
+If the lock cannot be acquired within 10 seconds, the submit returns an error without writing anything.
+
 ### Overwrite Guard
 
-Before writing, the script checks the target rows in the drive link column (`Google Drive Link (9:16)` preferred, falls back to `Google Drive Link (4:5)`). If any cell already contains an `https://` URL, the submit is **aborted** with an error. Placeholder values like "None" or "No" do not trigger the guard — only real URLs do.
+Before writing, the script checks **both** drive link columns (`Google Drive Link (9:16)` and `Google Drive Link (4:5)`) across the target rows. If any cell in either column already contains an `https://` URL, the submit is **aborted** with an error. Placeholder values like "None" or "No" do not trigger the guard — only real URLs do.
+
+### Column Write Safety
+
+Only columns that were explicitly set by the submit are written. The server tracks a `writtenCols` Set and writes only those columns in contiguous batches — helper columns, formula columns, and anything not in the Set are never touched, even if they fall between two written columns.
 
 ### S.No. and Row Positioning
 
@@ -163,13 +195,15 @@ Before writing, the script checks the target rows in the drive link column (`Goo
 
 ### Ad Name Formula
 
-- The script scans up to `DATA_SCAN_LIMIT` rows of the Ad Name column looking for a formula
-- That formula is copied (with relative reference adjustment) into all newly written rows
-- `YT Ad Name` formula is copied the same way if present
+- The script independently scans up to `DATA_SCAN_LIMIT` rows of the **Ad Name** column for a formula, and separately scans the **YT Ad Name** column for its formula
+- Both formulas are stored at their own row references (`adNameFormulaRow`, `ytAdNameFormulaRow`) — they do not need to be on the same row
+- Each formula is copied (with relative reference adjustment) into all newly written rows
 
 ### Protected Columns
 
 Before writing, the script checks sheet and range protections. Columns the running account cannot edit are skipped entirely (not written to). Tracker-level `skipColumns` adds additional columns to skip regardless of protection status (e.g. Beard's S.No. and Can Take Live? are auto-managed by sheet rules).
+
+Hyperlink writing also respects `skipColumns` — protected drive columns are not touched by the hyperlink step.
 
 ### Columns Written Per Row
 
@@ -198,7 +232,7 @@ Before writing, the script checks sheet and range protections. Columns the runni
 | YT Links | Written blank |
 | Date Taken Live | Written blank |
 | YT Ads Status | Hardcoded "No" |
-| YT Ad Name | Formula copied from existing row |
+| YT Ad Name | Formula copied from existing row (independently discovered) |
 
 Drive link cells are written as **rich text hyperlinks** (URL is both display text and link target).
 
@@ -211,7 +245,7 @@ All sheet reads are cached in **Script Properties** to keep the web app fast aft
 | Prefix | Scope | Contents |
 |--------|-------|----------|
 | `bc1_<tracker>` | Tracker-level | Dropdown options, sheetNames, tabProductMap, personMap |
-| `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adName formula and formula row |
+| `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adNameFormulaRow, ytAdNameFormulaRow, adName formula |
 | `ls1_<tracker>\|<tab>` | Tab-level | lastDataRow, nextSno, totalRows — updated after every submit |
 
 **Cache invalidation:**
