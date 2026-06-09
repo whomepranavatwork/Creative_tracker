@@ -608,6 +608,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   let personMap      = {};
   let tabProductMap  = {};
   let currentTracker = "";
+  let _folderLoading = false;
 
   const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy","canLive"];
   let sfaSnapshot = {};
@@ -683,7 +684,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     });
 
     document.getElementById("load-btn").disabled = false;
-    if (data.sheetNames && data.sheetNames.length) selectTabPill(data.sheetNames[0]);
+    if (data.sheetNames && data.sheetNames.length) {
+      const prevTab = document.getElementById("tab-name").value;
+      const target  = data.sheetNames.includes(prevTab) ? prevTab : data.sheetNames[0];
+      selectTabPill(target);
+    }
   }
 
   // ── Tracker switching ─────────────────────────────────────
@@ -813,7 +818,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   function onPersonInput() {
     const ig = personMap[document.getElementById("person").value.trim()];
-    if (ig) document.getElementById("instagram").value = ig;
+    document.getElementById("instagram").value = ig || "";
   }
 
   // ── Auto-load on paste ───────────────────────────────────
@@ -830,15 +835,18 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   // ── Load folder ──────────────────────────────────────────
   function loadFolder() {
+    if (_folderLoading) return;
     const url = document.getElementById("folder-url").value.trim();
     if (!url) { setFolderMsg("Paste a Drive folder link first.", false); return; }
 
+    _folderLoading = true;
     const btn = document.getElementById("load-btn");
     btn.textContent = "Loading…"; btn.disabled = true;
     setFolderMsg("Fetching files…", null);
 
     google.script.run
       .withSuccessHandler(result => {
+        _folderLoading = false;
         btn.textContent = "Load"; btn.disabled = false;
         if (!result.ok) { setFolderMsg(result.msg, false); return; }
 
@@ -863,6 +871,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         document.getElementById("submit-btn-main").disabled = false;
       })
       .withFailureHandler(err => {
+        _folderLoading = false;
         btn.textContent = "Load"; btn.disabled = false;
         setFolderMsg("Error: " + err.message, false);
       })
@@ -1000,7 +1009,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const inp = document.getElementById(id + "_custom");
     if (inp && inp.style.display !== "none") return inp.value.trim();
     const sel = document.getElementById(id);
-    return sel ? sel.value : "";
+    if (!sel) return "";
+    return sel.value === "__custom__" ? "" : sel.value;
   }
 
   function updateSubMeta() {
@@ -1033,6 +1043,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   // ── Reset folder only (tab/tracker change) ───────────────
   function resetFolderOnly() {
     files = [];
+    _folderLoading = false;
     document.getElementById("folder-url").value          = "";
     document.getElementById("folder-status").textContent = "";
     document.getElementById("folder-status").className   = "folder-msg msg-info";
@@ -1056,6 +1067,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   // ── Submit ───────────────────────────────────────────────
   function submitEntries() {
     if (!files.length) { showBanner("Load a Drive folder first.", "err"); return; }
+    if (!sheetCtx.headerRow) { showBanner("Sheet info still loading — please wait a moment.", "err"); return; }
 
     const shared = {
       product:         document.getElementById("product").value.trim(),
@@ -1073,14 +1085,16 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     };
 
     const required = [
-      { val: shared.product,         label: "Product Name" },
-      { val: shared.intInf,          label: "INT / INF" },
-      { val: shared.adType,          label: "Ad Type" },
-      { val: shared.language,        label: "Language" },
-      { val: shared.person,          label: "Person Full Name" },
-      { val: shared.onboardingMonth, label: "Inf Onboarding Month" },
-      { val: shared.raisedBy,        label: "Raised By" }
+      { val: shared.product,  label: "Product Name" },
+      { val: shared.intInf,   label: "INT / INF" },
+      { val: shared.adType,   label: "Ad Type" },
+      { val: shared.language, label: "Language" },
+      { val: shared.person,   label: "Person Full Name" },
+      { val: shared.raisedBy, label: "Raised By" }
     ];
+    if (shared.person && shared.person !== "None") {
+      required.push({ val: shared.onboardingMonth, label: "Inf Onboarding Month" });
+    }
     const missing = required.filter(f => !f.val).map(f => f.label);
     if (missing.length) {
       showBanner("Please fill in: " + missing.join(", "), "err");

@@ -225,8 +225,9 @@ function getSheetContext(tabName, trackerName) {
       if (detected.colIndex.adName != null) {
         const lastRow = sheet.getLastRow();
         if (lastRow > detected.headerRow) {
+          const formulaRows = Math.min(lastRow - detected.headerRow, DATA_SCAN_LIMIT);
           const formulas = sheet
-            .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, lastRow - detected.headerRow, 1)
+            .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, formulaRows, 1)
             .getFormulas();
           for (let i = formulas.length - 1; i >= 0; i--) {
             if (formulas[i][0]) {
@@ -293,19 +294,25 @@ function _computeLiveState(sheet, colIndex, headerRow) {
   const maxC = Math.max(...scanCols);
   const data = sheet.getRange(headerRow + 1, minC + 1, scanRows, maxC - minC + 1).getValues();
 
+  const needDrive  = driveCols.length > 0;
+  const needAdName = adNameCol != null;
+
   for (let i = data.length - 1; i >= 0; i--) {
-    // Drive link: real submission only if it's an https:// URL
-    const hasDrive = driveCols.some(c => {
+    // Drive link: real submission only — https:// URL, never pre-filled
+    const hasDrive = needDrive && driveCols.some(c => {
       const v = data[i][c - minC];
       return typeof v === "string" && v.startsWith("https://");
     });
     // Ad name: full name has 6+ "_"-separated segments; partial (e.g. advance_regime_00176) has 3
-    const hasAdName = adNameCol != null && (function() {
+    const hasAdName = needAdName && (function() {
       const v = String(data[i][adNameCol - minC] || "");
       return v.split("_").length >= 6;
     })();
-
-    if (hasDrive && hasAdName) { lastDataRow = headerRow + 1 + i; break; }
+    // Require both signals when both columns exist; fall back to whichever is present
+    const isReal = needDrive && needAdName ? hasDrive && hasAdName
+                 : needDrive               ? hasDrive
+                 :                          hasAdName;
+    if (isReal) { lastDataRow = headerRow + 1 + i; break; }
   }
 
   // nextSno: read from the sno cell at lastDataRow (sequential — no full-column scan needed)
@@ -371,6 +378,10 @@ function addEntries(payload) {
     const headerRow   = payload.headerRow;
     const nextSno     = parseInt(payload.nextSno, 10);
     const firstNewRow = payload.lastDataRow + 1;
+
+    if (!Number.isFinite(firstNewRow) || firstNewRow < 2) {
+      return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
+    }
 
     if (!cuts || cuts.length === 0) return { ok: false, msg: "No cuts to add." };
 
