@@ -279,11 +279,15 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 .fi-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; color: var(--text); }
 .fi-ext {
   flex-shrink: 0; text-decoration: none; line-height: 1;
-  font-size: 12px; color: var(--light); padding: 3px 7px; border-radius: 6px;
-  border: none; background: none; cursor: pointer; font-family: inherit;
-  transition: background .15s, color .15s;
+  font-size: 13px; color: var(--muted); padding: 5px 11px; border-radius: 8px;
+  border: 1.5px solid var(--border); background: var(--card);
+  cursor: pointer; font-family: inherit; transition: all .15s;
 }
-.fi-ext:hover { background: var(--border); color: var(--accent); }
+.fi-ext:hover { background: var(--border); color: var(--accent); border-color: var(--accent); }
+.fi-name-link { color: var(--text); text-decoration: none; }
+.fi-name-link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
+.td-fname-link { color: var(--text); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.td-fname-link:hover { color: var(--accent); }
 
 /* ── Video player modal ── */
 #vid-modal {
@@ -1014,8 +1018,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       tdNum.textContent = String(i+1).padStart(2,"0"); tr.appendChild(tdNum);
 
       const tdFile = document.createElement("td"); tdFile.className = "td-file";
-      const fname  = document.createElement("span"); fname.className = "td-fname";
+      const fname  = document.createElement("a"); fname.className = "td-fname td-fname-link";
       fname.textContent = f.name; fname.title = f.name;
+      fname.href = f.url; fname.target = "_blank"; fname.rel = "noopener noreferrer";
       const fplay  = document.createElement("button");
       fplay.className = "fi-ext"; fplay.textContent = "▶"; fplay.title = "Play video";
       fplay.addEventListener("click", (e) => { e.stopPropagation(); openVid(f.id, f.name, f.url); });
@@ -1045,8 +1050,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       chk.id = "sfa_include_" + i; chk.checked = true;
       const num  = document.createElement("span"); num.className = "fi-num";
       num.textContent = String(i+1).padStart(2,"0");
-      const span = document.createElement("span"); span.className = "fi-name";
+      const span = document.createElement("a"); span.className = "fi-name fi-name-link";
       span.textContent = f.name; span.title = f.name;
+      span.href = f.url; span.target = "_blank"; span.rel = "noopener noreferrer";
+      span.addEventListener("click", e => e.stopPropagation());
       const ext  = document.createElement("button");
       ext.className = "fi-ext"; ext.textContent = "▶"; ext.title = "Play video";
       ext.addEventListener("click", e => { e.stopPropagation(); openVid(f.id, f.name, f.url); });
