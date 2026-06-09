@@ -6,8 +6,6 @@
 // ============================================================
 
 // ── Tracker registry ─────────────────────────────────────────
-// Add / remove trackers here. The key is the display name shown
-// in the tracker selector; spreadsheetId is the Sheet ID from its URL.
 const TRACKERS = {
   "Hair": {
     spreadsheetId: "1DbcV58XCrHQqjqg1Kl6JaEsBHrpBA7jGiqGOB71wj1Y",
@@ -22,17 +20,13 @@ const TRACKERS = {
   },
   "Beard": {
     spreadsheetId: "1lguNY_9CQIOk6Rsm9hsixJ-GTxMgCpCRhnZIAaxuh2c",
-    skipColumns: ["canLive", "sno"],  // auto-filled by sheet rule; do not overwrite
-    hideFields:  ["canLive"],  // hidden in the form UI
+    skipColumns: ["canLive", "sno"],
+    hideFields:  ["canLive"],
     tabProductMap: {
       "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
     }
   }
-  // Nutrition tracker — add when ready:
-  // "Nutrition": {
-  //   spreadsheetId: "REPLACE_WITH_ID",
-  //   tabProductMap: { "Magnesium": ["Magnesium"], "Creatine": ["Creatine"], ... }
-  // }
+  // "Nutrition": { spreadsheetId: "REPLACE_WITH_ID", tabProductMap: { ... } }
 };
 
 const HEADER_SEARCH_LIMIT = 20;
@@ -64,6 +58,14 @@ const HEADER_MAP = {
   ytAdName:        "YT Ad Name"
 };
 
+// ── Script Properties key helpers ────────────────────────────
+// bc1_ = buckets cache (tracker-level: dropdowns, sheetNames, personMap)
+// sc1_ = sheet context (tab-level: headerRow, colIndex, formula info)
+// ls1_ = live state   (tab-level: lastDataRow, nextSno, totalRows — updated on every submit)
+function _spKey(prefix, trackerName, tabName) {
+  return prefix + trackerName + (tabName ? "|" + tabName : "");
+}
+
 // ── Helpers ───────────────────────────────────────────────────
 function getSpreadsheetFor(trackerName) {
   const t = TRACKERS[trackerName];
@@ -78,40 +80,45 @@ function doGet() {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-// ── Called on page load: returns tracker list + first tracker data ──
+// ── Called on page load ───────────────────────────────────────
 function getTrackers() {
   const trackerNames = Object.keys(TRACKERS);
   const first = trackerNames[0];
   const data  = selectTracker(first);
-  data.trackerNames = trackerNames;
+  data.trackerNames  = trackerNames;
   data.activeTracker = first;
   return data;
 }
 
 // ── Called when user switches tracker ────────────────────────
+// Reads from Script Properties; falls back to sheet on cache miss.
 function selectTracker(trackerName) {
-  // Cache Buckets + sheetNames for 5 min so repeated switches are instant.
-  const cache    = CacheService.getScriptCache();
-  const cacheKey = "tracker_v3_" + trackerName;
-  const cached   = cache.get(cacheKey);
-  if (cached) {
-    try { return JSON.parse(cached); } catch (e) { /* fall through on parse error */ }
+  const props = PropertiesService.getScriptProperties();
+  const key   = _spKey("bc1_", trackerName);
+  const raw   = props.getProperty(key);
+  if (raw) {
+    try {
+      const cached = JSON.parse(raw);
+      cached.trackerName = trackerName;
+      return cached;
+    } catch (e) { /* fall through */ }
   }
+  return _loadBucketsFromSheet(trackerName);
+}
 
-  const ss = getSpreadsheetFor(trackerName);
-  const t  = TRACKERS[trackerName];
-
-  // Only show tabs that have a product mapping — hides pivot/utility tabs
+// Reads Buckets sheet, writes to Script Properties, returns result.
+function _loadBucketsFromSheet(trackerName) {
+  const ss      = getSpreadsheetFor(trackerName);
+  const t       = TRACKERS[trackerName];
   const sheetNames = ss.getSheets()
     .map(s => s.getName())
     .filter(name => t.tabProductMap[name] !== undefined);
-
   const buckets = readBuckets(ss);
 
   const result = {
     trackerName,
     sheetNames,
-    hideFields:   t.hideFields || [],
+    hideFields:    t.hideFields || [],
     tabProductMap: t.tabProductMap,
     personMap:     buckets.personMap,
     dropdownOptions: {
@@ -136,7 +143,11 @@ function selectTracker(trackerName) {
     }
   };
 
-  try { cache.put(cacheKey, JSON.stringify(result), 300); } catch (e) { /* ignore cache write errors */ }
+  try {
+    PropertiesService.getScriptProperties()
+      .setProperty(_spKey("bc1_", trackerName), JSON.stringify(result));
+  } catch (e) { /* ignore write errors — will re-read next time */ }
+
   return result;
 }
 
@@ -176,28 +187,87 @@ function readBuckets(ss) {
 }
 
 // ── Called when user picks a tab ──────────────────────────────
+// Returns cached sheet context + live state; hits the sheet only on cache miss.
 function getSheetContext(tabName, trackerName) {
-  const { sheet, colIndex, headerRow } = resolveSheet(tabName, trackerName);
-  const today   = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
+  const props  = PropertiesService.getScriptProperties();
+  const scKey  = _spKey("sc1_", trackerName, tabName);
+  const lsKey  = _spKey("ls1_", trackerName, tabName);
+  const today  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
 
+  let sc = null; // static: headerRow, colIndex, adNameFormula, adNameFormulaRow
+  let ls = null; // live:   lastDataRow, nextSno, totalRows
+
+  try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) { sc = null; }
+  try { ls = JSON.parse(props.getProperty(lsKey)); } catch (e) { ls = null; }
+
+  if (!sc || !ls) {
+    // Cache miss — read from sheet
+    const ss    = getSpreadsheetFor(trackerName);
+    const sheet = ss.getSheetByName(tabName);
+    if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
+
+    if (!sc) {
+      const detected = detectHeaders(sheet);
+      sc = {
+        headerRow:        detected.headerRow,
+        colIndex:         detected.colIndex,
+        adNameFormula:    "",
+        adNameFormulaRow: null
+      };
+      // Scan for ad name formula (rarely changes — cached until manual refresh)
+      if (detected.colIndex.adName != null) {
+        const lastRow = sheet.getLastRow();
+        if (lastRow > detected.headerRow) {
+          const formulas = sheet
+            .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, lastRow - detected.headerRow, 1)
+            .getFormulas();
+          for (let i = formulas.length - 1; i >= 0; i--) {
+            if (formulas[i][0]) {
+              sc.adNameFormula    = formulas[i][0];
+              sc.adNameFormulaRow = detected.headerRow + 1 + i;
+              break;
+            }
+          }
+        }
+      }
+      try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
+    }
+
+    if (!ls) {
+      ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
+      try { props.setProperty(lsKey, JSON.stringify(ls)); } catch (e) {}
+    }
+  }
+
+  return {
+    sheetName:       tabName,
+    nextSno:         String(ls.nextSno).padStart(5, "0"),
+    today,
+    totalRows:       ls.totalRows,
+    lastDataRow:     ls.lastDataRow,
+    adNameFormula:   sc.adNameFormula,
+    adNameFormulaRow: sc.adNameFormulaRow,
+    colIndex:        sc.colIndex,
+    headerRow:       sc.headerRow
+  };
+}
+
+// Scans the sheet to find lastDataRow, nextSno, totalRows.
+function _computeLiveState(sheet, colIndex, headerRow) {
   const lastRow  = sheet.getLastRow();
   const dataRows = lastRow - headerRow;
-  let nextSno          = 1;
-  let lastDataRow      = headerRow;
-  let adNameFormula    = "";
-  let adNameFormulaRow = null;
+  let nextSno    = 1;
+  let lastDataRow = headerRow;
 
   if (dataRows > 0) {
-    // Batch: merge signal cols + sno col into one range read instead of two calls.
     const signalCols = [colIndex.drive916, colIndex.drive45, colIndex.date].filter(c => c != null);
     const scanCols   = colIndex.sno != null ? [...signalCols, colIndex.sno] : [...signalCols];
 
     if (scanCols.length > 0) {
-      const minC  = Math.min(...scanCols);
-      const maxC  = Math.max(...scanCols);
-      const data  = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
+      const minC = Math.min(...scanCols);
+      const maxC = Math.max(...scanCols);
+      const data = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
 
-      // Detect last real row (signal cols never pre-filled)
       for (let i = data.length - 1; i >= 0; i--) {
         if (signalCols.some(c => data[i][c - minC] !== "")) {
           lastDataRow = headerRow + 1 + i;
@@ -205,7 +275,6 @@ function getSheetContext(tabName, trackerName) {
         }
       }
 
-      // Max S.No. in real data range (same read, no extra API call)
       if (colIndex.sno != null && lastDataRow > headerRow) {
         let maxSno = 0;
         const snoOff = colIndex.sno - minC;
@@ -216,33 +285,9 @@ function getSheetContext(tabName, trackerName) {
         nextSno = maxSno + 1;
       }
     }
-
-    // Formula scan — separate call (getFormulas can't be batched with getValues)
-    if (colIndex.adName != null) {
-      const allFormulas = sheet
-        .getRange(headerRow + 1, colIndex.adName + 1, lastRow - headerRow, 1)
-        .getFormulas();
-      for (let i = allFormulas.length - 1; i >= 0; i--) {
-        if (allFormulas[i][0]) {
-          adNameFormula    = allFormulas[i][0];
-          adNameFormulaRow = headerRow + 1 + i;
-          break;
-        }
-      }
-    }
   }
 
-  return {
-    sheetName:       sheet.getName(),
-    nextSno:         String(nextSno).padStart(5, "0"),
-    today,
-    totalRows:       dataRows,
-    lastDataRow,
-    adNameFormula,
-    adNameFormulaRow,
-    colIndex,
-    headerRow
-  };
+  return { nextSno, lastDataRow, totalRows: dataRows };
 }
 
 // ── Called by client: reads files from a Drive folder or single file ──
@@ -322,7 +367,6 @@ function addEntries(payload) {
     const lastCol  = sheet.getLastColumn();
     const today    = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
 
-    // Merge config-declared skips with columns actually protected on this sheet
     const configSkip = (TRACKERS[trackerName].skipColumns || [])
       .map(k => colIndex[k]).filter(c => c != null);
     const sheetSkip  = getProtectedCols(sheet, lastCol);
@@ -392,12 +436,24 @@ function addEntries(payload) {
       } catch (e) { /* protected — skip formula copy */ }
     }
 
+    const newLastDataRow = firstNewRow + rows.length - 1;
+    const newNextSno     = nextSno + rows.length;
+    const newTotalRows   = payload.totalRows + rows.length;
+
+    // Update live state cache so next tab switch is instant
+    try {
+      PropertiesService.getScriptProperties().setProperty(
+        _spKey("ls1_", trackerName, tabName),
+        JSON.stringify({ nextSno: newNextSno, lastDataRow: newLastDataRow, totalRows: newTotalRows })
+      );
+    } catch (e) { /* ignore cache write failure */ }
+
     return {
       ok:  true,
       msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
-      nextSno:     String(nextSno + rows.length).padStart(5, "0"),
-      lastDataRow: firstNewRow + rows.length - 1,
-      totalRows:   payload.totalRows + rows.length
+      nextSno:     String(newNextSno).padStart(5, "0"),
+      lastDataRow: newLastDataRow,
+      totalRows:   newTotalRows
     };
 
   } catch (e) {
@@ -405,12 +461,44 @@ function addEntries(payload) {
   }
 }
 
+// ── Cache refresh — called by the Refresh button in the webapp ──
+// Clears Script Properties for the given tracker and re-reads everything from the sheet.
+// Returns full tracker data (same shape as selectTracker) so the client can update immediately.
+function refreshCache(trackerName) {
+  const props = PropertiesService.getScriptProperties();
+  const t     = TRACKERS[trackerName];
+  if (!t) return { ok: false, msg: "Unknown tracker: " + trackerName };
+
+  // Delete all cached keys for this tracker
+  props.deleteProperty(_spKey("bc1_", trackerName));
+  Object.keys(t.tabProductMap).forEach(function(tabName) {
+    props.deleteProperty(_spKey("sc1_", trackerName, tabName));
+    props.deleteProperty(_spKey("ls1_", trackerName, tabName));
+  });
+
+  // Re-read Buckets from sheet and cache
+  const data = _loadBucketsFromSheet(trackerName);
+
+  // Pre-warm sheet context for all tabs (header scan + live state)
+  Object.keys(t.tabProductMap).forEach(function(tabName) {
+    try { getSheetContext(tabName, trackerName); } catch (e) { /* skip tabs with issues */ }
+  });
+
+  return data; // same shape as selectTracker — client can call applyTrackerData directly
+}
+
+// Run once manually from Apps Script editor after deploy, or set as a daily trigger.
+function refreshAllCaches() {
+  Object.keys(TRACKERS).forEach(function(name) {
+    try { refreshCache(name); } catch (e) { /* don't let one tracker block others */ }
+  });
+}
+
 // ── Sheet resolution ──────────────────────────────────────────
 function resolveSheet(tabName, trackerName) {
   const ss    = getSpreadsheetFor(trackerName);
   const sheet = ss.getSheetByName(tabName);
   if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
-
   const { headerRow, colIndex } = detectHeaders(sheet);
   return { sheet, headerRow, colIndex };
 }
@@ -420,7 +508,6 @@ function detectHeaders(sheet) {
   const readCols = Math.min(sheet.getLastColumn(), 50);
   const data     = sheet.getRange(1, 1, limit, readCols).getValues();
 
-  // Case-insensitive reverse map so "Can Take Live?" matches "Can take live?" etc.
   const reverseMap = {};
   Object.entries(HEADER_MAP).forEach(([key, text]) => {
     reverseMap[text.toLowerCase()] = key;
@@ -444,24 +531,18 @@ function detectHeaders(sheet) {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-// Returns a Set of 0-based column indices that are write-protected for the current
-// script user. Uses p.canEdit() which correctly handles owner-only protections
-// (getEditors() returns [] for those, which would wrongly look like "no one can edit").
 function getProtectedCols(sheet, lastCol) {
   const blocked = new Array(lastCol).fill(false);
   try {
-    // Range-level protections: a range is blocked if canEdit() returns false
     sheet.getProtections(SpreadsheetApp.ProtectionType.RANGE).forEach(function(p) {
       try {
-        if (p.canEdit()) return; // current user can write to this protected range
+        if (p.canEdit()) return;
         const r = p.getRange();
         const c1 = r.getColumn() - 1;
         const c2 = c1 + r.getNumColumns() - 1;
         for (let c = Math.max(c1, 0); c <= Math.min(c2, lastCol - 1); c++) blocked[c] = true;
-      } catch (pe) { /* skip unreadable protection */ }
+      } catch (pe) {}
     });
-
-    // Sheet-level protections: entire sheet locked except unprotectedRanges
     sheet.getProtections(SpreadsheetApp.ProtectionType.SHEET).forEach(function(p) {
       try {
         if (p.canEdit()) return;
@@ -471,18 +552,14 @@ function getProtectedCols(sheet, lastCol) {
           const c2 = c1 + r.getNumColumns() - 1;
           for (let c = Math.max(c1, 0); c <= Math.min(c2, lastCol - 1); c++) blocked[c] = false;
         });
-      } catch (pe) { /* skip unreadable protection */ }
+      } catch (pe) {}
     });
-  } catch (e) { /* can't read protections — return empty Set, real errors will surface on write */ }
-
+  } catch (e) {}
   const result = new Set();
   blocked.forEach(function(b, i) { if (b) result.add(i); });
   return result;
 }
 
-// Write rows as consecutive column segments, skipping all columns in skipCols.
-// skipCols must already include both config-based and sheet-protection-based skips
-// (built in addEntries via getProtectedCols). No try-catch here — real errors surface.
 function writeRows(sheet, firstNewRow, rows, lastCol, skipCols) {
   let segStart = null;
   for (let c = 0; c <= lastCol; c++) {
