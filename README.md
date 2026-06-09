@@ -1,7 +1,9 @@
-# Creative Tracker — Bulk Entry Automation
+# Creative Tracker — Multi-Tracker Bulk Entry
 
-Google Apps Script + standalone web app that bulk-writes creative tracker rows from a Drive folder link.  
+Google Apps Script + standalone web app for bulk-writing creative tracker rows from a Drive folder link.  
 Paste a Drive folder → fill shared fields once → set per-cut details → submit. All rows written instantly.
+
+Supports multiple trackers (Hair, Beard, Nutrition) each backed by a separate Google Sheet, selectable from the same web app URL.
 
 ---
 
@@ -9,132 +11,165 @@ Paste a Drive folder → fill shared fields once → set per-cut details → sub
 
 | File | Purpose |
 |------|---------|
-| `Code.gs` | Server-side Apps Script: reads the sheet, writes rows, serves the web app |
-| `webapp.html` | Standalone full-page web app (share this URL with the team) |
-| `Sidebar.html` | Sidebar version (opens inside Google Sheets) |
+| `MultiTracker_Code.gs` | Server-side Apps Script: reads sheets, writes rows, serves web app, manages cache |
+| `MultiTracker_webapp.html` | Standalone full-page web app (share this URL with the team) |
+| `Code.gs` | Original single-tracker server code (not used by multi-tracker deployment) |
+| `webapp.html` | Original single-tracker web app (not used by multi-tracker deployment) |
+| `Sidebar.html` | Sidebar version for use inside Google Sheets (not used by multi-tracker deployment) |
 | `.clasp.json` | clasp deployment config (script ID) |
 
 ---
 
 ## One-time Setup
 
-### Option A — Web App (recommended, works on any device)
-
-1. Open the target Google Sheet → **Extensions → Apps Script**
-2. Create / replace three files: `Code.gs`, `webapp.html`, `Sidebar.html` with contents from this repo
-3. In `Code.gs`, set `SPREADSHEET_ID` to the Sheet's ID (from its URL: `.../spreadsheets/d/<ID>/edit`)
-4. Update `TAB_PRODUCT_MAP` in `webapp.html` to match the Sheet's tab names and products (see below)
-5. **Deploy → New deployment**
+1. Open any Google Sheet → **Extensions → Apps Script**
+2. Create two files: `MultiTracker_Code.gs` and `MultiTracker_webapp.html` with contents from this repo  
+   (The Apps Script project does not need to be bound to a specific sheet — it uses `openById` to access all sheets)
+3. In `MultiTracker_Code.gs`, update the `TRACKERS` registry with the correct `spreadsheetId` for each tracker (see below)
+4. **Deploy → New deployment**
    - Type: **Web app**
-   - Execute as: **User accessing the web app** ← important for edit history attribution
+   - Execute as: **Me** (or the service account that has edit access to all sheets)
    - Who has access: Anyone with Google account (or restrict to org)
-6. Copy the URL and share with the team
+5. Copy the URL and share with the team
 
 > The URL is permanent. Subsequent code changes are deployed via **Deploy → Manage deployments → Edit (pencil icon) → Deploy** — same URL, no resharing needed.
 
-### Option B — Sidebar (inside Google Sheets only)
-
-Steps 1–4 same as above. No deployment needed — the sidebar opens via the **Bias for Action!** menu that appears when the Sheet is opened.
+> After the first deploy (or after adding a new tracker), run `refreshAllCaches()` once from the Apps Script editor to pre-warm the Script Properties cache for all trackers and tabs.
 
 ---
 
-## Migrating to a Different Sheet
+## Tracker Registry
 
-1. Copy all three files into the new Sheet's Apps Script project
-2. Change `SPREADSHEET_ID` in `Code.gs` to the new Sheet's ID
-3. Update `TAB_PRODUCT_MAP` in `webapp.html` to match the new Sheet's tabs and products
-4. If the new Sheet has different column headers, update `HEADER_MAP` in `Code.gs` to match
-5. Deploy as a new Web app deployment (new URL) — follow Option A steps 5–6
+All tracker configuration lives in the `TRACKERS` constant at the top of `MultiTracker_Code.gs`:
+
+```js
+const TRACKERS = {
+  "Hair": {
+    spreadsheetId: "...",
+    tabProductMap: {
+      "Biotin":       ["Biotin30"],
+      "S1":           ["Stage 1"],
+      "S2":           ["Stage2"],
+      "S3":           ["Stage3"],
+      "Form Testing": ["Selfasst"],
+      "Cetosomal":    ["Advance Regime"]
+    }
+  },
+  "Beard": {
+    spreadsheetId: "...",
+    skipColumns: ["canLive", "sno"],
+    hideFields:  ["canLive"],
+    tabProductMap: {
+      "Beard": ["Beard Growth Kit", "Beard Activator Kit", "Beard Development Kit", "Beard Gummies"]
+    }
+  },
+  "Nutrition": {
+    spreadsheetId: "...",
+    tabProductMap: {
+      "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
+      "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
+      "Magnesium": ["Magnesium Gummies", "Creatine Powder"]
+    }
+  }
+};
+```
+
+**Per-tracker config options:**
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `spreadsheetId` | string | ID from the sheet URL: `.../spreadsheets/d/<ID>/edit` |
+| `tabProductMap` | object | Maps sheet tab names → allowed product options for that tab |
+| `skipColumns` | string[] | Column keys (from `HEADER_MAP`) whose cells are never written (e.g. auto-filled or locked) |
+| `hideFields` | string[] | Column keys whose form fields are hidden in the UI |
+
+To add a new tracker: add an entry to `TRACKERS`, then run `refreshAllCaches()`.
 
 ---
 
-## Rules and Logic Currently Active
+## Rules and Logic
 
-### Tab Selection
+### Tracker and Tab Selection
 
-- Tabs are shown as **pill buttons** at the top of the form (not a dropdown)
-- Only the first 7 sheet tabs are shown (configurable via the `slice(0,7)` call in `init()`)
-- Selecting a tab loads sheet context (next S.No., entry count) via a single server call
-- Switching tabs **clears the Drive folder and cut details** but **preserves all shared fields** (Step 2) — so if a user picks the wrong tab after filling the form, they can switch without losing their work
+- **Tracker pills** appear at the top if more than one tracker is registered; clicking one switches context
+- **Tab pills** show the tabs defined in `tabProductMap` for the active tracker
+- Selecting a tab loads sheet context (entry count, next S.No.) via a single server call
+- Switching tabs **clears the Drive folder and cut details** but **preserves all shared fields** — no rework needed if you pick the wrong tab
+- Switching trackers resets everything including shared fields
 
 ### Product Name (Tab-Driven)
 
-Product options are **hardcoded per tab** in `TAB_PRODUCT_MAP` — they do not read from the Buckets tab. This is intentional: the Buckets tab may list all products across all trackers; we only want the relevant ones per tab.
+Product options are **set per tab** in `tabProductMap`. They do not read from the Buckets tab.
 
-Current mapping:
-
-| Tab | Product Options |
-|-----|----------------|
-| BGK | Beard Growth Kit, Beard Activator Kit, Beard Development Kit, Beard Gummies |
-| Biotin | Biotin30 (auto-selected) |
-| S1 | Stage 1 (auto-selected) |
-| S2 | Stage2 (auto-selected) |
-| S3 | Stage3 (auto-selected) |
-| Form Testing | Selfasst (auto-selected) |
-| Cetosomal | Advance Regime (auto-selected) |
-
-- **Single product tabs**: product is auto-selected, no dropdown shown
-- **Multi-product tabs (BGK)**: dropdown with a "— select product —" placeholder
-- **Unknown tabs**: falls back to the full Buckets product list
-
-To update: edit `TAB_PRODUCT_MAP` in `webapp.html`.
+- **Single product tab**: product is auto-selected, no dropdown shown
+- **Multi-product tab**: dropdown with a "— select product —" placeholder
+- **Unmapped tab**: shows the full Buckets product list with a warning banner
 
 ### Drive Folder Loading
 
-- Paste a Drive folder URL → folder loads automatically (no need to click Load)
-- Typing/dragging a full `drive.google.com/drive/folders/` URL also triggers auto-load
-- Files are sorted alphabetically (numeric-aware sort)
-- The folder must be shared with the script runner's Google account
+- Paste a Drive folder or individual file URL → loads automatically (no need to click Load)
+- Typing or pasting a full `drive.google.com/drive/folders/` or `drive.google.com/file/d/` URL also triggers auto-load
+- Files are sorted alphabetically (numeric-aware)
+- Batches over 20 files show a warning banner
+- The folder must be shared with the Google account executing the script
 
 ### Shared Fields (Step 2)
 
-These fields apply to every file in the batch:
+These apply to every file in the batch:
 
 - Product Name, Date Added (defaults to today), INT/INF, Ad Type, Language, Can Take Live?
-- Person Full Name → Instagram auto-fills from the Buckets tab `personMap`
-- Creator Type, Onboarding Month, Raised By (defaults to "Pranav"), Additional Info
+- Person Full Name → Instagram auto-fills from `personMap` (Buckets tab column I); clears when switched back to "None"
+- Creator Type, Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
-**localStorage persistence**: INT/INF, Ad Type, Language, Person, Creator Type, Instagram, Raised By are saved to `localStorage` after each successful submit and restored on next visit. Product is excluded (tab-driven).
-
-All dropdown options except Product and the narrative/format fields are read live from the **Buckets tab** on page load. Fallback defaults are built-in if a column is empty.
+**localStorage persistence**: INT/INF, Ad Type, Language, Person, Creator Type, Instagram, Raised By, Can Take Live? are saved after each successful submit and restored on next visit.
 
 ### Cut Details (Step 3)
 
-Each file in the folder gets its own row. Per-cut fields:
+Each file gets its own row. Per-cut fields:
 
-- **Funnel Type** (from Buckets tab: BOF, MOF, TOF or similar)
-- **Ratio** — 9:16, 4:5, or Both. Drives which Drive link column gets the URL:
-  - `9:16` → writes to `Google Drive Link (9:16)` column only
-  - `4:5` → writes to `Google Drive Link (4:5)` column only
-  - `Both` → writes the same URL to both columns
-- **Broad Narrative** — dropdown + "Other…" option for custom values
-- **Ad Format** — dropdown + "Other…" option for custom values
+- **Funnel Type** — from Buckets tab
+- **Ratio** — 9:16, 4:5, or Both. Controls which drive link column receives the URL
+- **Broad Narrative** — dropdown + "Other…" for free-text entry
+- **Ad Format** — dropdown + "Other…" for free-text entry
 
-**Same for all toggle**: on by default. Shows a shared panel with a file checklist. When toggled off, shows a per-row table where each file has individual dropdowns.
+**Same for all toggle**: on by default — one shared panel with a file checklist. Toggle off for a per-row table with individual dropdowns.
+
+### Last-Row Detection
+
+Finding the last real entry (and therefore where to write new rows) is the most critical operation. The logic uses two independent signals and reads at most `DATA_SCAN_LIMIT = 2000` rows from the header downward, regardless of `sheet.getLastRow()` (which can be inflated by stray values or formula pre-fill).
+
+**Signals used (both must be present when both columns exist):**
+
+1. **Drive link column** — only contains an `https://` URL when a real submission was made; never pre-filled
+2. **Ad name column** — the ad name formula (`=LOWER(SUBSTITUTE(TEXTJOIN(...)))`) produces an empty string for blank rows, a short partial string (e.g. `advance_regime_00176`) when only product/S.No. is pre-filled, and a full name with 6+ underscore-separated segments only for complete rows
+
+A row is classified as real only when:
+- Both signals are present → requires **both** a drive URL and a full ad name
+- Only drive columns present (no ad name column) → requires drive URL only
+- Only ad name column present (no drive columns) → requires full ad name only
+
+**S.No. column is NOT used as a signal** — it is formula-pre-filled for all rows in the sheet (including template rows far below the last real entry), so `sheet.getLastRow()` and the S.No. column are both unreliable for boundary detection.
 
 ### Overwrite Guard
 
-Before writing, the script checks the target rows in the **Drive link column** (`Google Drive Link (9:16)` preferred, falls back to `Google Drive Link (4:5)`). If any of those cells already has a value, the submit is **aborted** with an error message. This prevents accidental overwrites of existing entries.
-
-Drive link columns are used as the guard because they are never pre-filled — product name, S.No., and funnel type may be pre-filled by other workflows.
+Before writing, the script checks the target rows in the drive link column (`Google Drive Link (9:16)` preferred, falls back to `Google Drive Link (4:5)`). If any cell already contains an `https://` URL, the submit is **aborted** with an error. Placeholder values like "None" or "No" do not trigger the guard — only real URLs do.
 
 ### S.No. and Row Positioning
 
-- The script **auto-detects the header row** by scanning the first 20 rows for a row matching at least 6 known column headers. No hardcoded row numbers.
-- `lastDataRow` is determined by scanning the **Funnel Type column** from the bottom up — the last row with a non-empty Funnel value is treated as the last real entry. (Date Added is not used for this because it may have been written incorrectly by earlier runs.)
-- S.No. is read from that last row and incremented. It is formatted as a zero-padded 5-digit number (`00001`).
-- New rows are always written immediately after `lastDataRow`.
+- **Header row auto-detection**: scans the first 20 rows for a row matching ≥ 6 known column headers from `HEADER_MAP`. No hardcoded row numbers.
+- **S.No. value**: read from the sno cell at `lastDataRow`; new rows get `lastSno + 1, lastSno + 2, ...`
+- **Format**: zero-padded 5 digits (`00001`), applied via `setNumberFormat("00000")`
+- New rows are always written immediately after `lastDataRow`
 
 ### Ad Name Formula
 
-- The script scans the entire Ad Name column for the last row containing a formula
+- The script scans up to `DATA_SCAN_LIMIT` rows of the Ad Name column looking for a formula
 - That formula is copied (with relative reference adjustment) into all newly written rows
 - `YT Ad Name` formula is copied the same way if present
-- Ad Name and YT Ad Name cells are **left blank for value writing** — only the formula copy fills them
 
-### Edit History Attribution
+### Protected Columns
 
-The web app is deployed as **"Execute as: User accessing the web app"**. This means Google Sheet edit history correctly attributes writes to the individual user who submitted the form, not the script owner.
+Before writing, the script checks sheet and range protections. Columns the running account cannot edit are skipped entirely (not written to). Tracker-level `skipColumns` adds additional columns to skip regardless of protection status (e.g. Beard's S.No. and Can Take Live? are auto-managed by sheet rules).
 
 ### Columns Written Per Row
 
@@ -147,8 +182,8 @@ The web app is deployed as **"Execute as: User accessing the web app"**. This me
 | Google Drive Link (4:5) | File URL if ratio is 4:5 or Both |
 | Google Drive Link (9:16) | File URL if ratio is 9:16 or Both |
 | Live? | Hardcoded "No" |
-| Can Take Live? | From field (default: Yes) |
-| Raised By | From field (default: Pranav) |
+| Can Take Live? | From field (default: Yes) — hidden/skipped for Beard |
+| Raised By | From field |
 | Funnel Type | Per-cut field |
 | INT / INF | From shared field |
 | Ad Type | From shared field |
@@ -156,7 +191,7 @@ The web app is deployed as **"Execute as: User accessing the web app"**. This me
 | Person Full Name | From shared field |
 | Broad Narrative - P0 | Per-cut field |
 | Ad Format | Per-cut field |
-| Inf Onboarding Month | From shared field |
+| Inf Onboarding Month | From shared field (blank for Int content) |
 | Additional Information | From shared field |
 | Instagram Profile | Auto-filled from personMap or manually entered |
 | Creator Type | From shared field |
@@ -165,13 +200,29 @@ The web app is deployed as **"Execute as: User accessing the web app"**. This me
 | YT Ads Status | Hardcoded "No" |
 | YT Ad Name | Formula copied from existing row |
 
-Drive link cells are written as **rich text hyperlinks** (the URL is both the display text and the link target).
+Drive link cells are written as **rich text hyperlinks** (URL is both display text and link target).
 
 ---
 
-## Dropdowns That Come from the Buckets Tab
+## Caching (Script Properties)
 
-The following options are read live from the **Buckets** sheet on page load:
+All sheet reads are cached in **Script Properties** to keep the web app fast after the first load. Three cache tiers:
+
+| Prefix | Scope | Contents |
+|--------|-------|----------|
+| `bc1_<tracker>` | Tracker-level | Dropdown options, sheetNames, tabProductMap, personMap |
+| `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adName formula and formula row |
+| `ls1_<tracker>\|<tab>` | Tab-level | lastDataRow, nextSno, totalRows — updated after every submit |
+
+**Cache invalidation:**
+- The **Refresh** button in the web app calls `refreshCache(trackerName)` — clears and re-reads all keys for the current tracker
+- Run `refreshAllCaches()` from the Apps Script editor to clear and re-warm all trackers and tabs at once (use after deploy or when sheet structure changes)
+
+---
+
+## Dropdowns from the Buckets Tab
+
+Each tracker's sheet must have a **Buckets** tab. The following options are read from it:
 
 | Field | Buckets Column |
 |-------|---------------|
@@ -184,23 +235,38 @@ The following options are read live from the **Buckets** sheet on page load:
 | Person Full Name | H |
 | Instagram Profile | I (linked to Person via personMap) |
 
-If any column is empty, built-in fallback defaults are used:
+Built-in fallback defaults apply if a column is empty:
 - Funnel: BOF, MOF, TOF
 - INT/INF: Inf, Int, Hair Warriors
 - Ad Type: Reel, Static, Carousel
 - Language: Hinglish, English, Hindi
 - Ad Format: Educational, Non Vo, Statics, Testimonial, Carousel, UGC, Organic Reviews, Hair Warriors
 
-Narrative and Can Take Live / ratio / creatorType / onboardingMonth options are hardcoded in `Code.gs` (they don't vary by Buckets data).
+Narrative, ratio, creatorType, onboardingMonth, canLive options are hardcoded in `MultiTracker_Code.gs`.
 
 ---
 
-## Code.gs Key Constants
+## Key Constants in MultiTracker_Code.gs
 
 ```js
-const SPREADSHEET_ID   = "1EknvJXuzSZTNKnT3Xr3jsAbPct9yEgCzLbbehwZCJ2E"; // change per sheet
-const FORCE_SHEET_NAME = "";       // leave blank — user picks tab in the form
-const HEADER_SEARCH_LIMIT = 20;    // rows to scan when looking for the header row
+const TRACKERS = { ... };         // tracker registry — see above
+const HEADER_SEARCH_LIMIT = 20;   // rows to scan when locating the header row
+const DATA_SCAN_LIMIT     = 2000; // max rows to scan for last real entry (~1 year headroom)
 ```
 
-`HEADER_MAP` maps internal field keys to exact column header strings as they appear in the Sheet. If column headers differ in a new sheet, update this map.
+`HEADER_MAP` maps internal field keys to exact column header strings as they appear in each sheet. Update it if a sheet uses non-standard header text.
+
+---
+
+## Diagnostics
+
+`debugLiveState(trackerName, tabName)` can be run from the Apps Script editor to inspect what the row-detection logic sees on any tab:
+
+```js
+debugLiveState("Nutrition", "Creatine")
+// Logs: headerRow, colIndex, sheet.getLastRow(), scan range,
+//       first/last 5 rows with drive/adName/sno values,
+//       and the final result (lastDataRow, nextSno, totalRows)
+```
+
+Run this whenever entries or S.No. counts look wrong. If the result is correct but the web app shows stale numbers, run `refreshAllCaches()` to clear the Script Properties cache.
