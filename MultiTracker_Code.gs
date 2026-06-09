@@ -260,6 +260,9 @@ function getSheetContext(tabName, trackerName) {
 }
 
 // Scans the sheet to find lastDataRow, nextSno, totalRows.
+// Uses S.No. column (never formula-filled) as the primary row-presence signal,
+// with drive link / date columns as fallbacks. This prevents sheets that
+// pre-fill the date column with formulas from reporting a falsely high lastDataRow.
 function _computeLiveState(sheet, colIndex, headerRow) {
   const lastRow  = sheet.getLastRow();
   const dataRows = lastRow - headerRow;
@@ -268,23 +271,25 @@ function _computeLiveState(sheet, colIndex, headerRow) {
 
   if (dataRows > 0) {
     const signalCols = [colIndex.drive916, colIndex.drive45, colIndex.date].filter(c => c != null);
-    const scanCols   = colIndex.sno != null ? [...signalCols, colIndex.sno] : [...signalCols];
+    const hasSno     = colIndex.sno != null;
+    const scanCols   = hasSno ? [...signalCols, colIndex.sno] : [...signalCols];
 
     if (scanCols.length > 0) {
-      const minC = Math.min(...scanCols);
-      const maxC = Math.max(...scanCols);
-      const data = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
+      const minC   = Math.min(...scanCols);
+      const maxC   = Math.max(...scanCols);
+      const data   = sheet.getRange(headerRow + 1, minC + 1, dataRows, maxC - minC + 1).getValues();
+      const snoOff = hasSno ? colIndex.sno - minC : -1;
 
+      // A row "has data" if any drive/date signal col is non-empty OR sno is a positive integer.
+      // Checking sno (a pure-write column) avoids false positives from pre-filled date formulas.
       for (let i = data.length - 1; i >= 0; i--) {
-        if (signalCols.some(c => data[i][c - minC] !== "")) {
-          lastDataRow = headerRow + 1 + i;
-          break;
-        }
+        const hasSig = signalCols.some(c => data[i][c - minC] !== "");
+        const hasSnoVal = hasSno && parseInt(data[i][snoOff], 10) > 0;
+        if (hasSig || hasSnoVal) { lastDataRow = headerRow + 1 + i; break; }
       }
 
-      if (colIndex.sno != null && lastDataRow > headerRow) {
+      if (hasSno && lastDataRow > headerRow) {
         let maxSno = 0;
-        const snoOff = colIndex.sno - minC;
         for (let i = 0; i <= lastDataRow - headerRow - 1; i++) {
           const n = parseInt(data[i][snoOff], 10);
           if (!isNaN(n) && n > maxSno) maxSno = n;
@@ -294,7 +299,7 @@ function _computeLiveState(sheet, colIndex, headerRow) {
     }
   }
 
-  return { nextSno, lastDataRow, totalRows: dataRows };
+  return { nextSno, lastDataRow, totalRows: lastDataRow - headerRow };
 }
 
 // ── Called by client: reads files from a Drive folder or single file ──
