@@ -260,12 +260,13 @@ All sheet reads are cached in **Script Properties** to keep the web app fast aft
 | `bc1_<tracker>` | Tracker-level | Dropdown options, sheetNames, tabProductMap (everything except person data) |
 | `bc1p_<tracker>` | Tracker-level | personMap + person list — split from `bc1_` to stay under the 9 KB per-property limit. Treated as atomic with `bc1_`: if either key is missing, both are rebuilt from the sheet |
 | `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adNameFormulaRow, ytAdNameFormulaRow, adName formula — re-validated against the live header row on every submit |
-| `ls1_<tracker>\|<tab>` | Tab-level | lastDataRow, nextSno, totalRows — updated after every submit; never trusted for writes (recomputed inside the submit lock) |
+
+**Live state (entry count, last row, next S.No.) is never cached.** It is recomputed from the sheet on every tab load and again inside every submit lock — so the count shown in the app always reflects rows added manually or from other sessions, and writes always target the true next row.
 
 **Cache invalidation:**
 - The **Refresh dropdowns** button in the web app calls `refreshCache(trackerName, activeTab)` — clears all keys for the current tracker and pre-warms the active tab (other tabs rebuild lazily on first use)
 - Run `refreshAllCaches()` from the Apps Script editor to clear and re-warm all trackers and all tabs at once (use after deploy or when sheet structure changes)
-- A schema mismatch detected at submit time auto-rebuilds `sc1_` and clears `ls1_` for that tab — no manual action needed
+- A schema mismatch detected at submit time auto-rebuilds `sc1_` for that tab — no manual action needed
 
 ---
 

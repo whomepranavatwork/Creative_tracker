@@ -65,9 +65,11 @@ const HEADER_MAP = {
 };
 
 // ── Script Properties key helpers ────────────────────────────
-// bc1_ = buckets cache (tracker-level: dropdowns, sheetNames, personMap)
-// sc1_ = sheet context (tab-level: headerRow, colIndex, formula info)
-// ls1_ = live state   (tab-level: lastDataRow, nextSno, totalRows — updated on every submit)
+// bc1_  = buckets cache (tracker-level: dropdowns, sheetNames, tabProductMap)
+// bc1p_ = person data   (tracker-level: personMap + person list; split for 9 KB limit)
+// sc1_  = sheet context (tab-level: headerRow, colIndex, formula info)
+// Live state (lastDataRow / nextSno / totalRows) is intentionally NOT cached:
+// it is recomputed from the sheet on every tab load and inside every submit lock.
 function _spKey(prefix, trackerName, tabName) {
   return prefix + trackerName + (tabName ? "|" + tabName : "");
 }
@@ -206,35 +208,27 @@ function readBuckets(ss) {
 }
 
 // ── Called when user picks a tab ──────────────────────────────
-// Returns cached sheet context + live state; hits the sheet only on cache miss.
+// Schema (headerRow/colIndex/formula rows) is served from cache; live state
+// (entry count, next S.No.) is ALWAYS recomputed from the sheet — rows added
+// manually or from another session would otherwise show a stale count, which
+// users read as "the app picked the wrong row" even though writes were safe.
 function getSheetContext(tabName, trackerName) {
   const props  = PropertiesService.getScriptProperties();
   const scKey  = _spKey("sc1_", trackerName, tabName);
-  const lsKey  = _spKey("ls1_", trackerName, tabName);
   const today  = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd/MM/yyyy");
 
-  let sc = null; // static: headerRow, colIndex, adNameFormula, adNameFormulaRow
-  let ls = null; // live:   lastDataRow, nextSno, totalRows
+  const ss    = getSpreadsheetFor(trackerName);
+  const sheet = ss.getSheetByName(tabName);
+  if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
 
+  let sc = null; // static: headerRow, colIndex, adNameFormula, formula rows
   try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) { sc = null; }
-  try { ls = JSON.parse(props.getProperty(lsKey)); } catch (e) { ls = null; }
-
-  if (!sc || !ls) {
-    // Cache miss — read from sheet
-    const ss    = getSpreadsheetFor(trackerName);
-    const sheet = ss.getSheetByName(tabName);
-    if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
-
-    if (!sc) {
-      sc = _buildSheetContext(sheet);
-      try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
-    }
-
-    if (!ls) {
-      ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
-      try { props.setProperty(lsKey, JSON.stringify(ls)); } catch (e) {}
-    }
+  if (!sc) {
+    sc = _buildSheetContext(sheet);
+    try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
   }
+
+  const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
 
   return {
     sheetName:       tabName,
@@ -452,9 +446,6 @@ function addEntries(payload) {
     if (!sc || !_validateSchema(sheet, sc)) {
       sc = _buildSheetContext(sheet);
       try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
-      // Live state was computed against the old schema — clear it so it's
-      // recomputed below with the fresh column map.
-      try { props.deleteProperty(_spKey("ls1_", trackerName, tabName)); } catch (e) {}
     }
     const colIndex  = sc.colIndex;
     const headerRow = sc.headerRow;
@@ -609,13 +600,6 @@ function addEntries(payload) {
       const newNextSno     = nextSno + rows.length;
       const newTotalRows   = ls.totalRows + rows.length;
 
-      try {
-        props.setProperty(
-          _spKey("ls1_", trackerName, tabName),
-          JSON.stringify({ nextSno: newNextSno, lastDataRow: newLastDataRow, totalRows: newTotalRows })
-        );
-      } catch (e) { /* ignore cache write failure */ }
-
       return {
         ok:  true,
         msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
@@ -649,7 +633,7 @@ function refreshCache(trackerName, activeTab) {
   props.deleteProperty(_spKey("bc1p_", trackerName));
   Object.keys(t.tabProductMap).forEach(function(tabName) {
     props.deleteProperty(_spKey("sc1_", trackerName, tabName));
-    props.deleteProperty(_spKey("ls1_", trackerName, tabName));
+    props.deleteProperty(_spKey("ls1_", trackerName, tabName)); // legacy key — live state is no longer cached
   });
 
   // Re-read Buckets from sheet and cache
