@@ -328,6 +328,22 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 }
 .file-empty { padding: 20px; font-size: 13px; color: var(--light); text-align: center; }
 
+/* ── Add-person modal ── */
+#person-modal {
+  position: fixed; inset: 0; z-index: 210;
+  background: rgba(28,26,23,.45); display: flex;
+  align-items: center; justify-content: center;
+  padding: 20px; animation: fadeIn .15s ease;
+}
+.pm-box {
+  background: var(--card); border-radius: 16px; padding: 24px 22px;
+  width: 100%; max-width: 400px; box-shadow: 0 24px 80px rgba(0,0,0,.35);
+}
+.pm-title { font-size: 17px; font-weight: 700; letter-spacing: -.3px; }
+.pm-sub   { font-size: 12px; color: var(--muted); margin: 3px 0 18px; }
+.pm-msg   { font-size: 12px; color: var(--red); min-height: 16px; margin-top: 8px; }
+.pm-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 14px; }
+
 /* ── Per-cut table ── */
 .cut-table-wrap {
   overflow-x: auto; -webkit-overflow-scrolling: touch;
@@ -450,7 +466,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
 <!-- ── Tracker selector ── -->
 <div class="tracker-section" id="tracker-section" style="display:none;">
-  <div class="tracker-section-label">Select tracker</div>
+  <div class="tracker-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Select tracker</span>
+    <button class="btn-xs" onclick="openPersonModal()" title="Add a new person to this tracker's Buckets tab">+ Add person</button>
+  </div>
   <div class="tracker-pills" id="tracker-pills">
     <div style="font-size:13px;color:var(--light);">Loading…</div>
   </div>
@@ -663,6 +682,27 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="sub-meta">
       <div class="sub-meta-main" id="sub-main">Ready to add</div>
       <div class="sub-meta-sub"  id="sub-sub"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add-person modal ── -->
+<div id="person-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title" style="display:none;" onclick="if(event.target===this)closePersonModal(false)">
+  <div class="pm-box">
+    <div class="pm-title" id="pm-title">Add person</div>
+    <div class="pm-sub" id="pm-sub"></div>
+    <div class="field">
+      <label>Full Name <span class="req">*</span></label>
+      <input type="text" id="pm-name" placeholder="e.g. Ved Iyer">
+    </div>
+    <div class="field mt">
+      <label>Instagram Profile <span class="hint">optional</span></label>
+      <input type="text" id="pm-ig" placeholder="profile link or @handle">
+    </div>
+    <div class="pm-msg" id="pm-msg"></div>
+    <div class="pm-actions">
+      <button class="btn-sec" id="pm-cancel-btn" onclick="closePersonModal(false)">Cancel</button>
+      <button class="btn-primary" id="pm-add-btn" onclick="confirmPersonModal()">Add to Buckets</button>
     </div>
   </div>
 </div>
@@ -1295,26 +1335,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     if (!cuts.length) { showBanner("No files selected.", "err"); return; }
 
-    // New person? Offer to save them to the Buckets tab so the name (and
-    // Instagram handle) autocompletes for everyone from now on. Fire-and-forget —
-    // the row submit below proceeds either way.
+    // New person? Offer to save them to Buckets via the in-app modal, then
+    // continue the submit (whether they added or skipped).
     if (shared.person !== "None") {
       const known = (opts.person || []).some(p => String(p).toLowerCase() === shared.person.toLowerCase());
-      if (!known && confirm('"' + shared.person + '" is not in the person list.\nAdd them to the Buckets tab so the name autocompletes next time?')) {
-        const newName = shared.person, newIg = shared.instagram;
-        google.script.run
-          .withSuccessHandler(res => {
-            if (res && res.ok && !res.existed) {
-              opts.person = [...(opts.person || []), newName];
-              if (newIg) personMap[newName] = newIg;
-              const dl = document.getElementById("person-list");
-              const o  = document.createElement("option"); o.value = newName; dl.appendChild(o);
-            }
-          })
-          .addPersonToBuckets(currentTracker, newName, newIg);
+      if (!known) {
+        openPersonModal(shared.person, shared.instagram, () => _doSubmit(shared, cuts));
+        return;
       }
     }
+    _doSubmit(shared, cuts);
+  }
 
+  function _doSubmit(shared, cuts) {
     const btn = document.getElementById("submit-btn-main");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Writing…';
@@ -1347,6 +1380,58 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         trackerName: currentTracker,
         shared, cuts
       });
+  }
+
+  // ── Add-person modal ─────────────────────────────────────
+  let _pmOnDone = null; // continuation called when the modal closes (add or skip)
+
+  function openPersonModal(prefillName, prefillIg, onDone) {
+    _pmOnDone = onDone || null;
+    document.getElementById("pm-sub").textContent = onDone
+      ? '"' + prefillName + '" is not in the ' + currentTracker + " person list yet. Add them to Buckets so the name autocompletes for everyone? Your submission continues either way."
+      : "Saved to the " + currentTracker + " tracker's Buckets tab (columns H / I).";
+    document.getElementById("pm-cancel-btn").textContent = onDone ? "Skip, just submit" : "Cancel";
+    document.getElementById("pm-name").value = prefillName || "";
+    document.getElementById("pm-ig").value   = prefillIg   || "";
+    document.getElementById("pm-msg").textContent = "";
+    document.getElementById("person-modal").style.display = "flex";
+    setTimeout(() => document.getElementById(prefillName ? "pm-add-btn" : "pm-name").focus(), 50);
+  }
+
+  function closePersonModal(added) {
+    document.getElementById("person-modal").style.display = "none";
+    const cb = _pmOnDone; _pmOnDone = null;
+    if (cb) cb(added);
+  }
+
+  function confirmPersonModal() {
+    const name = document.getElementById("pm-name").value.trim();
+    const ig   = document.getElementById("pm-ig").value.trim();
+    if (!name) { document.getElementById("pm-msg").textContent = "Enter a name first."; return; }
+
+    const btn = document.getElementById("pm-add-btn");
+    btn.disabled = true; btn.textContent = "Adding…";
+    google.script.run
+      .withSuccessHandler(res => {
+        btn.disabled = false; btn.textContent = "Add to Buckets";
+        if (!res || !res.ok) {
+          document.getElementById("pm-msg").textContent = (res && res.msg) || "Could not add — try again.";
+          return;
+        }
+        if (!res.existed) {
+          opts.person = [...(opts.person || []), name];
+          if (ig) personMap[name] = ig;
+          const dl = document.getElementById("person-list");
+          const o  = document.createElement("option"); o.value = name; dl.appendChild(o);
+        }
+        showBanner(res.msg, res.existed ? "warn" : "ok");
+        closePersonModal(true);
+      })
+      .withFailureHandler(err => {
+        btn.disabled = false; btn.textContent = "Add to Buckets";
+        document.getElementById("pm-msg").textContent = "Error: " + err.message;
+      })
+      .addPersonToBuckets(currentTracker, name, ig);
   }
 
   // ── Field error helpers ──────────────────────────────────

@@ -645,6 +645,7 @@ function addPersonToBuckets(trackerName, person, instagram) {
   const target = lastFilled + 1;
   sheet.getRange(target, 8).setValue(person);
   if (instagram) sheet.getRange(target, 9).setValue(instagram);
+  const cells = "H" + target + (instagram ? " & I" + target : "");
 
   // Patch the person cache in place — best effort; a refresh rebuilds it anyway
   try {
@@ -658,7 +659,10 @@ function addPersonToBuckets(trackerName, person, instagram) {
     }
   } catch (e) {}
 
-  return { ok: true, existed: false, msg: '"' + person + '" added to the person list.' };
+  return {
+    ok: true, existed: false,
+    msg: '"' + person + '" added to ' + trackerName + " Buckets (cell" + (instagram ? "s " : " ") + cells + ")."
+  };
 }
 
 // ── Cache refresh — called by the Refresh button in the webapp ──
