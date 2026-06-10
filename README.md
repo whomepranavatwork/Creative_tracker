@@ -143,6 +143,7 @@ These apply to every file in the batch:
 
 - Product Name, Date Added (defaults to today), INT/INF, Ad Type, Language, Can Take Live?
 - Person Full Name — **autocomplete text field**: type to search the person list from Buckets; leave blank for "None". Instagram auto-fills on an exact name match and clears when the field is emptied (a manually typed handle is not wiped while typing a partial name)
+- **New person names**: submitting with a name not in the list prompts once to add it (plus the Instagram handle, if filled) to the tracker's **Buckets tab** (columns H/I) — the name then autocompletes for everyone. Declining still writes the name to the row, just without saving it to Buckets
 - Creator Type (incl. Meta Creator, YT Creator, Hair Warrior), Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
 **Required fields** are marked with a red `*`. Submitting with any required field empty highlights the missing fields and scrolls to the first one.

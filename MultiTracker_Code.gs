@@ -617,6 +617,49 @@ function addEntries(payload) {
   }
 }
 
+// ── Called by client: adds a new person to the tracker's Buckets tab ──
+// Appends to column H (person) and column I (instagram, if given) at the first
+// row after the last filled person cell. Case-insensitive duplicate check.
+// Also patches the bc1p_ cache so the name autocompletes without a full refresh.
+function addPersonToBuckets(trackerName, person, instagram) {
+  person    = String(person    || "").trim();
+  instagram = String(instagram || "").trim();
+  if (!person || person.toLowerCase() === "none") {
+    return { ok: false, msg: "No person name given." };
+  }
+  const ss    = getSpreadsheetFor(trackerName);
+  const sheet = ss.getSheetByName("Buckets");
+  if (!sheet) return { ok: false, msg: "Buckets tab not found in " + trackerName + " sheet." };
+
+  const lastRow = Math.max(sheet.getLastRow(), 1);
+  const col = sheet.getRange(1, 8, lastRow, 1).getValues(); // column H
+  let lastFilled = 1; // row 1 is the header
+  for (let i = 0; i < col.length; i++) {
+    const v = String(col[i][0]).trim();
+    if (i > 0 && v.toLowerCase() === person.toLowerCase()) {
+      return { ok: true, existed: true, msg: '"' + person + '" is already in the person list.' };
+    }
+    if (v) lastFilled = i + 1;
+  }
+  const target = lastFilled + 1;
+  sheet.getRange(target, 8).setValue(person);
+  if (instagram) sheet.getRange(target, 9).setValue(instagram);
+
+  // Patch the person cache in place — best effort; a refresh rebuilds it anyway
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const key   = _spKey("bc1p_", trackerName);
+    const p     = JSON.parse(props.getProperty(key));
+    if (p && p.person) {
+      p.person.push(person);
+      if (instagram) p.personMap[person] = instagram;
+      props.setProperty(key, JSON.stringify(p));
+    }
+  } catch (e) {}
+
+  return { ok: true, existed: false, msg: '"' + person + '" added to the person list.' };
+}
+
 // ── Cache refresh — called by the Refresh button in the webapp ──
 // Clears Script Properties for the given tracker and re-reads everything from the sheet.
 // Returns full tracker data (same shape as selectTracker) so the client can update immediately.

@@ -1295,6 +1295,26 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     if (!cuts.length) { showBanner("No files selected.", "err"); return; }
 
+    // New person? Offer to save them to the Buckets tab so the name (and
+    // Instagram handle) autocompletes for everyone from now on. Fire-and-forget —
+    // the row submit below proceeds either way.
+    if (shared.person !== "None") {
+      const known = (opts.person || []).some(p => String(p).toLowerCase() === shared.person.toLowerCase());
+      if (!known && confirm('"' + shared.person + '" is not in the person list.\nAdd them to the Buckets tab so the name autocompletes next time?')) {
+        const newName = shared.person, newIg = shared.instagram;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.ok && !res.existed) {
+              opts.person = [...(opts.person || []), newName];
+              if (newIg) personMap[newName] = newIg;
+              const dl = document.getElementById("person-list");
+              const o  = document.createElement("option"); o.value = newName; dl.appendChild(o);
+            }
+          })
+          .addPersonToBuckets(currentTracker, newName, newIg);
+      }
+    }
+
     const btn = document.getElementById("submit-btn-main");
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>Writing…';
