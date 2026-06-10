@@ -103,6 +103,31 @@ body {
 }
 .tab-info-dot.visible { display: block; }
 
+/* ── Boundary snapshot (mini sheet view) ── */
+.snap-wrap {
+  margin-top: 10px; border: 1px solid #d0d7de; border-radius: 8px;
+  overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff;
+}
+.snap { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 640px; }
+.snap th {
+  background: #1f4e79; color: #fff; padding: 6px 10px; text-align: left;
+  font-weight: 600; font-size: 10px; white-space: nowrap;
+}
+.snap th.sn-rn { background: #e8eaed; color: #5f6368; text-align: right; width: 34px; }
+.snap td {
+  padding: 5px 10px; border-bottom: 1px solid #e8eaed; border-right: 1px solid #f1f3f4;
+  white-space: nowrap; max-width: 300px; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text); background: #fff;
+}
+.snap td.sn-rn {
+  background: #f8f9fa; color: #80868b; text-align: right;
+  font-size: 10px; border-right: 1px solid #d0d7de; max-width: none;
+}
+.snap tr.sn-next td { background: #fef7f3; }
+.snap tr.sn-next td.sn-rn { background: #fdeee5; color: var(--accent); font-weight: 700; }
+.snap .sn-tag { color: var(--accent); font-weight: 700; white-space: nowrap; }
+.snap a { color: #1a73e8; text-decoration: underline; }
+
 /* ── Progress ── */
 .progress {
   max-width: 800px; margin: 16px auto 0; padding: 0 20px;
@@ -485,6 +510,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="tab-info-dot" id="tab-dot"></div>
     <span id="sheet-info"></span>
   </div>
+  <div id="boundary-snap"></div>
 </div>
 
 <!-- ── Progress ── -->
@@ -881,6 +907,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     document.getElementById("sheet-info").textContent = "Loading…";
     document.getElementById("tab-dot").classList.remove("visible");
+    document.getElementById("boundary-snap").innerHTML = "";
 
     const tabAtCall = tab;
     google.script.run
@@ -917,6 +944,66 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       a.style.cssText = "margin-left:8px;color:var(--accent);text-decoration:none;font-weight:600;";
       info.appendChild(a);
     }
+    renderBoundary(ctx.boundary, ctx.lastDataRow);
+  }
+
+  // Mini sheet-view of the data boundary: last real rows, the blank rows below,
+  // and a marker on the row the next entry will be written to.
+  function renderBoundary(boundary, lastDataRow) {
+    const wrap = document.getElementById("boundary-snap");
+    if (!wrap) return;
+    wrap.innerHTML = "";
+    if (!boundary || !boundary.length) return;
+
+    const tbl   = document.createElement("table"); tbl.className = "snap";
+    const thead = document.createElement("thead");
+    const thr   = document.createElement("tr");
+    ["", "S.No.", "Date Added", "Product Name", "Ad Name", "Drive (4:5)", "Drive (9:16)"].forEach((h, i) => {
+      const th = document.createElement("th");
+      if (i === 0) th.className = "sn-rn";
+      th.textContent = h;
+      thr.appendChild(th);
+    });
+    thead.appendChild(thr); tbl.appendChild(thead);
+
+    const tbody = document.createElement("tbody");
+    boundary.forEach(r => {
+      const tr = document.createElement("tr");
+      const isNext = r.row === lastDataRow + 1;
+      if (isNext) tr.className = "sn-next";
+
+      const rn = document.createElement("td"); rn.className = "sn-rn";
+      rn.textContent = r.row;
+      tr.appendChild(rn);
+
+      [r.sno, r.date, r.product, r.adName].forEach(v => {
+        const td = document.createElement("td"); td.textContent = v; td.title = v;
+        tr.appendChild(td);
+      });
+      [r.d45, r.d916].forEach(u => {
+        const td = document.createElement("td");
+        if (u && u.startsWith("https://")) {
+          const a = document.createElement("a");
+          a.href = u; a.target = "_blank"; a.rel = "noopener noreferrer";
+          a.textContent = u.slice(0, 34) + "…";
+          td.appendChild(a);
+        } else {
+          td.textContent = u;
+        }
+        tr.appendChild(td);
+      });
+      if (isNext) {
+        const tag = document.createElement("span");
+        tag.className = "sn-tag"; tag.textContent = " ← next entry";
+        tr.children[1].appendChild(tag);
+      }
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+
+    const w = document.createElement("div"); w.className = "snap-wrap";
+    w.appendChild(tbl);
+    wrap.appendChild(w);
   }
 
   function setProductForTab(tab) {
@@ -1384,8 +1471,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           sheetCtx.nextSno     = result.nextSno;
           sheetCtx.lastDataRow = result.lastDataRow;
           sheetCtx.totalRows   = result.totalRows;
-          document.getElementById("sheet-info").textContent =
-            `${result.totalRows} entries · Next S.No: ${result.nextSno}`;
+          sheetCtx.boundary    = result.boundary;
+          renderSheetInfo(sheetCtx); // refreshes count + boundary snapshot post-write
           setProg(1,"done"); setProg(2,"done"); setProg(3,"done");
           showBannerWithReset(result.msg, result.rangeUrl);
           window.scrollTo({ top: 0, behavior: "smooth" });

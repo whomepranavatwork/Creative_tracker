@@ -232,6 +232,7 @@ function getSheetContext(tabName, trackerName) {
   const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
 
   const sheetUrl = ss.getUrl() + "#gid=" + sheet.getSheetId();
+  const boundary = _boundarySnapshot(sheet, sc.colIndex, sc.headerRow, ls.lastDataRow);
 
   return {
     sheetName:       tabName,
@@ -240,6 +241,7 @@ function getSheetContext(tabName, trackerName) {
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
     sheetUrl,
+    boundary,
     adNameFormula:      sc.adNameFormula,
     adNameFormulaRow:   sc.adNameFormulaRow,
     ytAdNameFormulaRow: sc.ytAdNameFormulaRow,
@@ -305,6 +307,37 @@ function _validateSchema(sheet, sc) {
       String(row[c]).trim().toLowerCase() === HEADER_MAP[key].toLowerCase());
   } catch (e) {
     return false;
+  }
+}
+
+// Reads a small window around the data boundary (last 3 real rows + 2 rows
+// below) so the client can render a sheet-like snapshot — visual proof of
+// where the next entries will land, without opening the sheet.
+function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
+  try {
+    const tz       = Session.getScriptTimeZone();
+    const startRow = Math.max(headerRow + 1, lastDataRow - 2);
+    const numRows  = (lastDataRow - startRow + 1) + 2;
+    const cols     = [colIndex.sno, colIndex.date, colIndex.product, colIndex.adName,
+                      colIndex.drive45, colIndex.drive916].filter(c => c != null);
+    if (!cols.length || numRows <= 0) return null;
+    const maxC = Math.max(...cols) + 1;
+    const safeRows = Math.min(numRows, Math.max(sheet.getMaxRows() - startRow + 1, 0));
+    if (safeRows <= 0) return null;
+    const vals = sheet.getRange(startRow, 1, safeRows, maxC).getValues();
+    const fmt  = v => (v instanceof Date) ? Utilities.formatDate(v, tz, "dd/MM/yyyy") : String(v);
+    const pick = (r, c) => (c != null ? String(r[c]) : "");
+    return vals.map((r, i) => ({
+      row:     startRow + i,
+      sno:     pick(r, colIndex.sno),
+      date:    colIndex.date != null ? fmt(r[colIndex.date]) : "",
+      product: pick(r, colIndex.product),
+      adName:  pick(r, colIndex.adName).slice(0, 80),
+      d45:     pick(r, colIndex.drive45),
+      d916:    pick(r, colIndex.drive916)
+    }));
+  } catch (e) {
+    return null; // snapshot is best-effort, never blocks the flow
   }
 }
 
@@ -604,13 +637,37 @@ function addEntries(payload) {
       const newNextSno     = nextSno + rows.length;
       const newTotalRows   = ls.totalRows + rows.length;
 
+      // Read-back verification: re-read the rows just written and confirm each
+      // drive URL sits in the correct ratio column. Turns "trust me" into a
+      // machine-checked assertion against the actual sheet.
+      let verified = false;
+      try {
+        const width = sheet.getLastColumn();
+        const back  = sheet.getRange(firstNewRow, 1, rows.length, width).getValues();
+        verified = cuts.every((cut, i) => {
+          const r = back[i];
+          const want45  = (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "";
+          const want916 = (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "";
+          const ok45  = colIndex.drive45  == null || skipCols.has(colIndex.drive45)  ||
+                        String(r[colIndex.drive45])  === want45;
+          const ok916 = colIndex.drive916 == null || skipCols.has(colIndex.drive916) ||
+                        String(r[colIndex.drive916]) === want916;
+          return ok45 && ok916;
+        });
+      } catch (e) { /* verification is best-effort */ }
+
+      const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
+
       return {
         ok:  true,
-        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow}).`,
+        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})` +
+             (verified ? " — verified ✓" : ""),
+        verified,
         nextSno:     String(newNextSno).padStart(5, "0"),
         lastDataRow: newLastDataRow,
         totalRows:   newTotalRows,
         firstRow:    firstNewRow,
+        boundary,
         rangeUrl:    ss.getUrl() + "#gid=" + sheet.getSheetId() + "&range=A" + firstNewRow + ":A" + newLastDataRow
       };
 
