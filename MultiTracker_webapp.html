@@ -692,6 +692,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <div class="pm-title" id="pm-title">Add person</div>
     <div class="pm-sub" id="pm-sub"></div>
     <div class="field">
+      <label>Tracker <span class="hint">which Buckets tab to write to</span></label>
+      <select id="pm-tracker"></select>
+    </div>
+    <div class="field mt">
       <label>Full Name <span class="req">*</span></label>
       <input type="text" id="pm-name" placeholder="e.g. Ved Iyer">
     </div>
@@ -728,6 +732,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   let personMap      = {};
   let tabProductMap  = {};
   let currentTracker = "";
+  let trackerNames   = [];
   let _vidPrevFocus  = null;
   let _folderLoading = false;
 
@@ -745,7 +750,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         applyTrackerData(data);
 
         // Build tracker pills (hidden if only 1 tracker)
-        const trackerNames = data.trackerNames || [];
+        trackerNames = data.trackerNames || [];
         const trackerSec   = document.getElementById("tracker-section");
         const pillsWrap    = document.getElementById("tracker-pills");
         pillsWrap.innerHTML = "";
@@ -1413,9 +1418,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   function openPersonModal(prefillName, prefillIg, onDone) {
     _pmOnDone = onDone || null;
     document.getElementById("pm-sub").textContent = onDone
-      ? '"' + prefillName + '" is not in the ' + currentTracker + " person list yet. Add them to Buckets so the name autocompletes for everyone? Your submission continues either way."
-      : "Saved to the " + currentTracker + " tracker's Buckets tab (columns H / I).";
+      ? '"' + prefillName + '" is not in the person list yet. Add them to a tracker\'s Buckets tab so the name autocompletes for everyone? Your submission continues either way.'
+      : "Writes the name (and Instagram) to the chosen tracker's Buckets tab (columns H / I).";
     document.getElementById("pm-cancel-btn").textContent = onDone ? "Skip, just submit" : "Cancel";
+
+    // Tracker picker — defaults to the active tracker but the user chooses
+    const tSel = document.getElementById("pm-tracker");
+    tSel.innerHTML = "";
+    (trackerNames.length ? trackerNames : [currentTracker]).forEach(name => {
+      const o = document.createElement("option"); o.value = name; o.textContent = name;
+      tSel.appendChild(o);
+    });
+    tSel.value = currentTracker;
+
     document.getElementById("pm-name").value = prefillName || "";
     document.getElementById("pm-ig").value   = prefillIg   || "";
     document.getElementById("pm-msg").textContent = "";
@@ -1430,8 +1445,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   function confirmPersonModal() {
-    const name = document.getElementById("pm-name").value.trim();
-    const ig   = document.getElementById("pm-ig").value.trim();
+    const name    = document.getElementById("pm-name").value.trim();
+    const ig      = document.getElementById("pm-ig").value.trim();
+    const tracker = document.getElementById("pm-tracker").value || currentTracker;
     if (!name) { document.getElementById("pm-msg").textContent = "Enter a name first."; return; }
 
     const btn = document.getElementById("pm-add-btn");
@@ -1443,7 +1459,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           document.getElementById("pm-msg").textContent = (res && res.msg) || "Could not add — try again.";
           return;
         }
-        if (!res.existed) {
+        // Only update the in-page autocomplete if the name went into the
+        // tracker currently loaded — other trackers pick it up on switch.
+        if (!res.existed && tracker === currentTracker) {
           opts.person = [...(opts.person || []), name];
           if (ig) personMap[name] = ig;
           const dl = document.getElementById("person-list");
@@ -1456,7 +1474,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         btn.disabled = false; btn.textContent = "Add to Buckets";
         document.getElementById("pm-msg").textContent = "Error: " + err.message;
       })
-      .addPersonToBuckets(currentTracker, name, ig);
+      .addPersonToBuckets(tracker, name, ig);
   }
 
   // ── Field error helpers ──────────────────────────────────
