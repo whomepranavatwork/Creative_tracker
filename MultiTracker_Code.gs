@@ -316,8 +316,8 @@ function _validateSchema(sheet, sc) {
 function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
   try {
     const tz       = Session.getScriptTimeZone();
-    const startRow = Math.max(headerRow + 1, lastDataRow - 4); // 5 rows above the write row
-    const numRows  = (lastDataRow - startRow + 1) + 5;         // + 5 rows below it
+    const startRow = Math.max(headerRow + 1, lastDataRow - 2); // 3 rows above the write row
+    const numRows  = (lastDataRow - startRow + 1) + 2;         // + 2 rows below it
     const cols     = [colIndex.sno, colIndex.date, colIndex.product, colIndex.adName,
                       colIndex.drive45, colIndex.drive916, colIndex.live,
                       colIndex.canLive, colIndex.raisedBy].filter(c => c != null);
