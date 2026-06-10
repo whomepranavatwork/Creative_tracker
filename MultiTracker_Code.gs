@@ -231,12 +231,34 @@ function getSheetContext(tabName, trackerName) {
 
   const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
 
+  // Last-entry preview — lets the user visually verify the detected position
+  // against the sheet instead of trusting a bare count.
+  let lastEntry = null;
+  if (ls.lastDataRow > sc.headerRow) {
+    try {
+      const ci      = sc.colIndex;
+      const rowVals = sheet.getRange(ls.lastDataRow, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const fmt = v => (v instanceof Date)
+        ? Utilities.formatDate(v, Session.getScriptTimeZone(), "dd/MM/yyyy")
+        : String(v);
+      lastEntry = {
+        row:     ls.lastDataRow,
+        sno:     ci.sno     != null ? String(rowVals[ci.sno])     : "",
+        date:    ci.date    != null ? fmt(rowVals[ci.date])       : "",
+        product: ci.product != null ? String(rowVals[ci.product]) : ""
+      };
+    } catch (e) { /* preview is best-effort */ }
+  }
+  const sheetUrl = ss.getUrl() + "#gid=" + sheet.getSheetId();
+
   return {
     sheetName:       tabName,
     nextSno:         String(ls.nextSno).padStart(5, "0"),
     today,
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
+    lastEntry,
+    sheetUrl,
     adNameFormula:      sc.adNameFormula,
     adNameFormulaRow:   sc.adNameFormulaRow,
     ytAdNameFormulaRow: sc.ytAdNameFormulaRow,
@@ -603,10 +625,12 @@ function addEntries(payload) {
 
       return {
         ok:  true,
-        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()}.`,
+        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow}).`,
         nextSno:     String(newNextSno).padStart(5, "0"),
         lastDataRow: newLastDataRow,
-        totalRows:   newTotalRows
+        totalRows:   newTotalRows,
+        firstRow:    firstNewRow,
+        rangeUrl:    ss.getUrl() + "#gid=" + sheet.getSheetId() + "&range=A" + firstNewRow + ":A" + newLastDataRow
       };
 
     } finally {
