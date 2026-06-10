@@ -30,7 +30,7 @@ Supports multiple trackers (Hair, Beard, Nutrition) each backed by a separate Go
    - Who has access: Anyone with Google account (or restrict to org)
 5. Copy the URL and share with the team
 
-> The URL is permanent. Subsequent code changes pushed to `main` are deployed automatically via GitHub Actions (see below) — redeploy manually via **Deploy → Manage deployments → Edit (pencil icon) → Deploy** only if needed.
+> The URL is permanent. Pushes to `main` update the project code automatically via GitHub Actions (see below). The **live** web app is also redeployed automatically **only if** the `CLASP_DEPLOYMENT_ID` secret is configured — otherwise the live URL keeps serving the old version until you redeploy manually via **Deploy → Manage deployments → Edit (pencil icon) → New version → Deploy**.
 
 > After the first deploy (or after adding a new tracker), run `refreshAllCaches()` once from the Apps Script editor to pre-warm the Script Properties cache for all trackers and tabs.
 
@@ -40,7 +40,9 @@ Supports multiple trackers (Hair, Beard, Nutrition) each backed by a separate Go
 
 ## GitHub Actions Auto-Deploy
 
-Every push to `main` triggers `.github/workflows/deploy-appsscript.yml`, which installs clasp and runs `clasp push --force` automatically.
+Every push to `main` triggers `.github/workflows/deploy-appsscript.yml`, which installs clasp, runs `clasp push --force` (updates the project's editor code), and then — if configured — runs `clasp deploy -i <deployment-id>` to update the **live web app** to the new code while keeping the URL stable.
+
+> **Important:** `clasp push` alone does NOT change what the live URL serves. Without the deployment step, the web app keeps running the previously deployed version.
 
 **One-time secret setup:**
 
@@ -49,9 +51,13 @@ Every push to `main` triggers `.github/workflows/deploy-appsscript.yml`, which i
 3. GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
    - Name: `CLASPRC_JSON`
    - Value: paste the JSON
-4. Done — all future pushes to `main` auto-deploy
+4. Add a second secret for live redeploys:
+   - In the Apps Script editor: **Deploy → Manage deployments** → copy the **Deployment ID** of the web app deployment
+   - Name: `CLASP_DEPLOYMENT_ID`
+   - Value: the deployment ID
+5. Done — all future pushes to `main` update both the code and the live web app
 
-The `refresh_token` in the JSON is long-lived; the secret does not need to be rotated unless you revoke access.
+The `refresh_token` in the JSON is long-lived; the secret does not need to be rotated unless you revoke access. If `CLASP_DEPLOYMENT_ID` is missing, the workflow still succeeds but prints a warning that a manual redeploy is needed.
 
 ---
 
@@ -136,8 +142,8 @@ Product options are **set per tab** in `tabProductMap`. They do not read from th
 These apply to every file in the batch:
 
 - Product Name, Date Added (defaults to today), INT/INF, Ad Type, Language, Can Take Live?
-- Person Full Name → Instagram auto-fills from `personMap` (Buckets tab column I); clears when switched back to "None"
-- Creator Type, Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
+- Person Full Name — **autocomplete text field**: type to search the person list from Buckets; leave blank for "None". Instagram auto-fills on an exact name match and clears when the field is emptied (a manually typed handle is not wiped while typing a partial name)
+- Creator Type (incl. Meta Creator, YT Creator, Hair Warrior), Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
 **Required fields** are marked with a red `*`. Submitting with any required field empty highlights the missing fields and scrolls to the first one.
 
@@ -160,15 +166,15 @@ Each file gets its own row. Per-cut fields:
 
 Finding the last real entry (and therefore where to write new rows) is the most critical operation. The logic uses two independent signals and reads at most `DATA_SCAN_LIMIT = 2000` rows from the header downward, regardless of `sheet.getLastRow()` (which can be inflated by stray values or formula pre-fill).
 
-**Signals used (both must be present when both columns exist):**
+**Signals used:**
 
 1. **Drive link column** — only contains an `https://` URL when a real submission was made; never pre-filled
 2. **Ad name column** — the ad name formula (`=LOWER(SUBSTITUTE(TEXTJOIN(...)))`) produces an empty string for blank rows, a short partial string (e.g. `advance_regime_00176`) when only product/S.No. is pre-filled, and a full name with **6 or more underscore-separated segments** only for complete rows
 
-A row is classified as real only when:
-- Both signals present → requires **both** a drive URL and a full ad name (≥ 6 segments)
-- Only drive columns present (no ad name column) → requires drive URL only
-- Only ad name column present (no drive columns) → requires full ad name only
+A row is classified as real when:
+- Both columns present → **either** signal is sufficient (a drive URL is conclusive on its own even if the ad name formula hasn't fully resolved; the 6-segment threshold still filters out pre-filled partial ad names)
+- Only drive columns present (no ad name column) → requires drive URL
+- Only ad name column present (no drive columns) → requires full ad name
 
 **S.No. column is NOT used as a signal** — it is formula-pre-filled for all rows in the sheet (including template rows far below the last real entry), so `sheet.getLastRow()` and the S.No. column are both unreliable for boundary detection.
 
@@ -180,7 +186,14 @@ If the lock cannot be acquired within 10 seconds, the submit returns an error wi
 
 ### Overwrite Guard
 
-Before writing, the script checks **both** drive link columns (`Google Drive Link (9:16)` and `Google Drive Link (4:5)`) across the target rows. If any cell in either column already contains an `https://` URL, the submit is **aborted** with an error. Placeholder values like "None" or "No" do not trigger the guard — only real URLs do.
+Two guards run inside the submit lock before any write:
+
+1. **Drive URL guard** — checks **both** drive link columns (`Google Drive Link (9:16)` and `Google Drive Link (4:5)`) across the target rows. If any cell already contains an `https://` URL, the submit is **aborted**. Placeholder values like "None" or "No" do not trigger it — only real URLs do.
+2. **Manual-row guard** — checks the Product Name, Person Full Name, and Raised By cells across the target rows. Any non-empty value means a teammate started that row by hand (e.g. typed details before pasting the drive link) — the submit is **aborted** rather than overwriting their in-progress work.
+
+### Schema Validation at Write Time
+
+Every submit re-validates the cached column map against the live header row: each cached column index must still carry its expected header text. If columns were inserted, moved, or deleted since the cache was built, the schema (and formula row positions) is rebuilt from the sheet and the live-state cache is cleared — values can never silently land in the wrong columns.
 
 ### Column Write Safety
 
@@ -244,13 +257,15 @@ All sheet reads are cached in **Script Properties** to keep the web app fast aft
 
 | Prefix | Scope | Contents |
 |--------|-------|----------|
-| `bc1_<tracker>` | Tracker-level | Dropdown options, sheetNames, tabProductMap, personMap |
-| `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adNameFormulaRow, ytAdNameFormulaRow, adName formula |
-| `ls1_<tracker>\|<tab>` | Tab-level | lastDataRow, nextSno, totalRows — updated after every submit |
+| `bc1_<tracker>` | Tracker-level | Dropdown options, sheetNames, tabProductMap (everything except person data) |
+| `bc1p_<tracker>` | Tracker-level | personMap + person list — split from `bc1_` to stay under the 9 KB per-property limit. Treated as atomic with `bc1_`: if either key is missing, both are rebuilt from the sheet |
+| `sc1_<tracker>\|<tab>` | Tab-level | headerRow, colIndex, adNameFormulaRow, ytAdNameFormulaRow, adName formula — re-validated against the live header row on every submit |
+| `ls1_<tracker>\|<tab>` | Tab-level | lastDataRow, nextSno, totalRows — updated after every submit; never trusted for writes (recomputed inside the submit lock) |
 
 **Cache invalidation:**
-- The **Refresh** button in the web app calls `refreshCache(trackerName)` — clears and re-reads all keys for the current tracker
-- Run `refreshAllCaches()` from the Apps Script editor to clear and re-warm all trackers and tabs at once (use after deploy or when sheet structure changes)
+- The **Refresh dropdowns** button in the web app calls `refreshCache(trackerName, activeTab)` — clears all keys for the current tracker and pre-warms the active tab (other tabs rebuild lazily on first use)
+- Run `refreshAllCaches()` from the Apps Script editor to clear and re-warm all trackers and all tabs at once (use after deploy or when sheet structure changes)
+- A schema mismatch detected at submit time auto-rebuilds `sc1_` and clears `ls1_` for that tab — no manual action needed
 
 ---
 

@@ -1,8 +1,7 @@
 // ============================================================
 // Creative Tracker — MULTI-TRACKER VERSION
-// Deploy this file as "Code.gs" in a separate Apps Script project.
-// Original single-tracker files (Code.gs, webapp.html, Sidebar.html)
-// are NOT used by this version.
+// This file must be named "MultiTracker_Code" in the Apps Script
+// project, alongside "MultiTracker_webapp" (HTML). Pushed via clasp.
 // ============================================================
 
 // ── Tracker registry ─────────────────────────────────────────
@@ -83,8 +82,7 @@ function getSpreadsheetFor(trackerName) {
 // ── Web app entry point ───────────────────────────────────────
 function doGet() {
   return HtmlService.createHtmlOutputFromFile("MultiTracker_webapp")
-    .setTitle("Creative Tracker")
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+    .setTitle("Creative Tracker");
 }
 
 // ── Called on page load ───────────────────────────────────────
@@ -103,22 +101,20 @@ function getTrackers() {
 // (split to stay under the 9 KB per-property Apps Script limit).
 function selectTracker(trackerName) {
   const props = PropertiesService.getScriptProperties();
-  const raw   = props.getProperty(_spKey("bc1_", trackerName));
-  if (raw) {
-    try {
-      const cached = JSON.parse(raw);
-      try {
-        const rawP = props.getProperty(_spKey("bc1p_", trackerName));
-        if (rawP) {
-          const cachedP = JSON.parse(rawP);
-          cached.personMap = cachedP.personMap;
-          cached.dropdownOptions.person = cachedP.person;
-        }
-      } catch (e) { /* person data unavailable — person dropdown shows only "None" */ }
-      cached.trackerName = trackerName;
+  // Both keys must be present and parseable — serving bc1_ without bc1p_ would
+  // give users an empty person list and silently write "None" to every row.
+  try {
+    const raw  = props.getProperty(_spKey("bc1_",  trackerName));
+    const rawP = props.getProperty(_spKey("bc1p_", trackerName));
+    if (raw && rawP) {
+      const cached  = JSON.parse(raw);
+      const cachedP = JSON.parse(rawP);
+      cached.personMap              = cachedP.personMap;
+      cached.dropdownOptions.person = cachedP.person;
+      cached.trackerName            = trackerName;
       return cached;
-    } catch (e) { /* fall through */ }
-  }
+    }
+  } catch (e) { /* corrupted cache — fall through to sheet read */ }
   return _loadBucketsFromSheet(trackerName);
 }
 
@@ -230,43 +226,7 @@ function getSheetContext(tabName, trackerName) {
     if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
 
     if (!sc) {
-      const detected = detectHeaders(sheet);
-      sc = {
-        headerRow:          detected.headerRow,
-        colIndex:           detected.colIndex,
-        adNameFormula:      "",
-        adNameFormulaRow:   null,
-        ytAdNameFormulaRow: null
-      };
-      const lastRow = sheet.getLastRow();
-      if (lastRow > detected.headerRow) {
-        const formulaRows = Math.min(lastRow - detected.headerRow, DATA_SCAN_LIMIT);
-        // Scan for Ad Name formula
-        if (detected.colIndex.adName != null) {
-          const formulas = sheet
-            .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, formulaRows, 1)
-            .getFormulas();
-          for (let i = formulas.length - 1; i >= 0; i--) {
-            if (formulas[i][0]) {
-              sc.adNameFormula    = formulas[i][0];
-              sc.adNameFormulaRow = detected.headerRow + 1 + i;
-              break;
-            }
-          }
-        }
-        // Independently scan for YT Ad Name formula (may start at a different row)
-        if (detected.colIndex.ytAdName != null) {
-          const ytFormulas = sheet
-            .getRange(detected.headerRow + 1, detected.colIndex.ytAdName + 1, formulaRows, 1)
-            .getFormulas();
-          for (let i = ytFormulas.length - 1; i >= 0; i--) {
-            if (ytFormulas[i][0]) {
-              sc.ytAdNameFormulaRow = detected.headerRow + 1 + i;
-              break;
-            }
-          }
-        }
-      }
+      sc = _buildSheetContext(sheet);
       try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
     }
 
@@ -288,6 +248,66 @@ function getSheetContext(tabName, trackerName) {
     colIndex:           sc.colIndex,
     headerRow:          sc.headerRow
   };
+}
+
+// Builds the full tab schema from the live sheet: header position, column map,
+// and ad-name formula locations. Used by getSheetContext and by addEntries
+// whenever the cached schema is missing or fails validation.
+function _buildSheetContext(sheet) {
+  const detected = detectHeaders(sheet);
+  const sc = {
+    headerRow:          detected.headerRow,
+    colIndex:           detected.colIndex,
+    adNameFormula:      "",
+    adNameFormulaRow:   null,
+    ytAdNameFormulaRow: null
+  };
+  const lastRow = sheet.getLastRow();
+  if (lastRow > detected.headerRow) {
+    const formulaRows = Math.min(lastRow - detected.headerRow, DATA_SCAN_LIMIT);
+    // Scan for Ad Name formula
+    if (detected.colIndex.adName != null) {
+      const formulas = sheet
+        .getRange(detected.headerRow + 1, detected.colIndex.adName + 1, formulaRows, 1)
+        .getFormulas();
+      for (let i = formulas.length - 1; i >= 0; i--) {
+        if (formulas[i][0]) {
+          sc.adNameFormula    = formulas[i][0];
+          sc.adNameFormulaRow = detected.headerRow + 1 + i;
+          break;
+        }
+      }
+    }
+    // Independently scan for YT Ad Name formula (may start at a different row)
+    if (detected.colIndex.ytAdName != null) {
+      const ytFormulas = sheet
+        .getRange(detected.headerRow + 1, detected.colIndex.ytAdName + 1, formulaRows, 1)
+        .getFormulas();
+      for (let i = ytFormulas.length - 1; i >= 0; i--) {
+        if (ytFormulas[i][0]) {
+          sc.ytAdNameFormulaRow = detected.headerRow + 1 + i;
+          break;
+        }
+      }
+    }
+  }
+  return sc;
+}
+
+// Returns true if every cached column index still carries the expected header
+// text on the live sheet. Guards against silent wrong-column writes after
+// someone inserts/moves/deletes columns (cache would otherwise stay stale).
+function _validateSchema(sheet, sc) {
+  try {
+    if (!sc || !sc.colIndex || sc.headerRow == null) return false;
+    const readCols = Math.min(sheet.getLastColumn(), 50);
+    const row = sheet.getRange(sc.headerRow, 1, 1, readCols).getValues()[0];
+    return Object.entries(sc.colIndex).every(([key, c]) =>
+      HEADER_MAP[key] != null && c < readCols &&
+      String(row[c]).trim().toLowerCase() === HEADER_MAP[key].toLowerCase());
+  } catch (e) {
+    return false;
+  }
 }
 
 // Scans the sheet to find lastDataRow, nextSno, totalRows.
@@ -347,11 +367,15 @@ function _computeLiveState(sheet, colIndex, headerRow) {
     if (isReal) { lastDataRow = headerRow + 1 + i; break; }
   }
 
-  // nextSno: read from the sno cell at lastDataRow (sequential — no full-column scan needed)
+  // nextSno: read from the sno cell at lastDataRow; if that cell is blank or
+  // non-numeric, walk upward to the nearest parseable S.No. so we never reuse
+  // or collide with an existing number. Row-count fallback only if none found.
   if (snoCol != null && lastDataRow > headerRow) {
-    const snoVal = data[lastDataRow - headerRow - 1][snoCol - minC];
-    const n = parseInt(snoVal, 10);
-    nextSno = isNaN(n) ? lastDataRow - headerRow + 1 : n + 1;
+    nextSno = lastDataRow - headerRow + 1; // fallback
+    for (let i = lastDataRow - headerRow - 1; i >= 0; i--) {
+      const n = parseInt(data[i][snoCol - minC], 10);
+      if (!isNaN(n)) { nextSno = n + 1; break; }
+    }
   }
 
   return { nextSno, lastDataRow, totalRows: lastDataRow - headerRow };
@@ -384,9 +408,12 @@ function getFolderFiles(driveUrl) {
   }
 
   const files = [];
+  const seenIds = new Set();
   const iter  = folder.getFiles();
   while (iter.hasNext()) {
     const f = iter.next();
+    if (seenIds.has(f.getId())) continue; // skip duplicate shortcuts/copies of the same file
+    seenIds.add(f.getId());
     files.push({
       id:   f.getId(),
       name: f.getName(),
@@ -414,17 +441,20 @@ function addEntries(payload) {
     if (!sheet) throw new Error("Sheet \"" + tabName + "\" not found.");
 
     // Load schema server-side — never trust client-sent colIndex / headerRow.
-    // If the sheet structure changed after the client loaded, client values would
-    // silently write to wrong columns.
+    // The cached schema is re-validated against the live header row on every
+    // submit; if columns were inserted/moved/deleted since the cache was built,
+    // the schema is rebuilt from the sheet (including formula row scan) so
+    // values never land in the wrong columns.
     const props = PropertiesService.getScriptProperties();
     const scKey = _spKey("sc1_", trackerName, tabName);
     let sc = null;
     try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) {}
-    if (!sc) {
-      const detected = detectHeaders(sheet);
-      sc = { headerRow: detected.headerRow, colIndex: detected.colIndex,
-             adNameFormulaRow: null, ytAdNameFormulaRow: null };
+    if (!sc || !_validateSchema(sheet, sc)) {
+      sc = _buildSheetContext(sheet);
       try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
+      // Live state was computed against the old schema — clear it so it's
+      // recomputed below with the fresh column map.
+      try { props.deleteProperty(_spKey("ls1_", trackerName, tabName)); } catch (e) {}
     }
     const colIndex  = sc.colIndex;
     const headerRow = sc.headerRow;
@@ -461,6 +491,24 @@ function addEntries(payload) {
           return {
             ok: false,
             msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
+          };
+        }
+      }
+
+      // Second guard: a teammate may have started a row BY HAND (product/person typed,
+      // drive link not pasted yet). Such a row has no URL and no full ad name, so the
+      // last-row scan treats it as blank — but writing over it would destroy their work.
+      // Product / Person / Raised By are never formula-pre-filled, so any value here
+      // means a human touched the row.
+      const manualCheckCols = [colIndex.product, colIndex.person, colIndex.raisedBy]
+        .filter(c => c != null);
+      for (const checkCol of manualCheckCols) {
+        const existing = sheet.getRange(firstNewRow, checkCol + 1, cuts.length, 1).getValues();
+        const conflict  = existing.findIndex(r => String(r[0]).trim() !== "");
+        if (conflict !== -1) {
+          return {
+            ok: false,
+            msg: `Row ${firstNewRow + conflict} has manually entered data — aborting to avoid overwriting a teammate's in-progress row. Check the sheet, then refresh and try again.`
           };
         }
       }
@@ -532,10 +580,16 @@ function addEntries(payload) {
 
       if (colIndex.adName != null && adNameFormulaRow && !skipCols.has(colIndex.adName)) {
         try {
-          sheet.getRange(adNameFormulaRow, colIndex.adName + 1).copyTo(
-            sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
-            SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
-          );
+          // Cached formula row can drift if rows were deleted above it — only copy
+          // if the source cell still actually contains a formula (copying a plain
+          // value would blank the formula column on the new rows).
+          const adSrc = sheet.getRange(adNameFormulaRow, colIndex.adName + 1);
+          if (adSrc.getFormula()) {
+            adSrc.copyTo(
+              sheet.getRange(firstNewRow, colIndex.adName + 1, rows.length, 1),
+              SpreadsheetApp.CopyPasteType.PASTE_FORMULA, false
+            );
+          }
         } catch (e) { /* protected — skip formula copy */ }
       }
 
@@ -582,7 +636,10 @@ function addEntries(payload) {
 // ── Cache refresh — called by the Refresh button in the webapp ──
 // Clears Script Properties for the given tracker and re-reads everything from the sheet.
 // Returns full tracker data (same shape as selectTracker) so the client can update immediately.
-function refreshCache(trackerName) {
+// activeTab (optional): if given, only that tab is pre-warmed — keeps the webapp
+// Refresh button fast. Other tabs rebuild lazily on first use. Called without
+// activeTab (from refreshAllCaches), every tab is pre-warmed.
+function refreshCache(trackerName, activeTab) {
   const props = PropertiesService.getScriptProperties();
   const t     = TRACKERS[trackerName];
   if (!t) return { ok: false, msg: "Unknown tracker: " + trackerName };
@@ -598,8 +655,9 @@ function refreshCache(trackerName) {
   // Re-read Buckets from sheet and cache
   const data = _loadBucketsFromSheet(trackerName);
 
-  // Pre-warm sheet context for all tabs (header scan + live state)
-  Object.keys(t.tabProductMap).forEach(function(tabName) {
+  // Pre-warm sheet context (header scan + live state)
+  const tabsToWarm = activeTab ? [activeTab] : Object.keys(t.tabProductMap);
+  tabsToWarm.forEach(function(tabName) {
     try { getSheetContext(tabName, trackerName); } catch (e) { /* skip tabs with issues */ }
   });
 

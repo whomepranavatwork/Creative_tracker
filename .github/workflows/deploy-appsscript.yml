@@ -25,3 +25,17 @@ jobs:
 
       - name: Push to Apps Script
         run: clasp push --force
+
+      # clasp push only updates the editor (HEAD) code. The live web app URL serves
+      # a pinned deployment version — redeploying the same deployment ID updates the
+      # live app while keeping the URL stable. Requires the CLASP_DEPLOYMENT_ID
+      # secret (Apps Script → Deploy → Manage deployments → copy the deployment ID).
+      - name: Update live web app deployment
+        env:
+          DEPLOYMENT_ID: ${{ secrets.CLASP_DEPLOYMENT_ID }}
+        run: |
+          if [ -n "$DEPLOYMENT_ID" ]; then
+            clasp deploy -i "$DEPLOYMENT_ID" -d "auto-deploy ${GITHUB_SHA::7}"
+          else
+            echo "::warning::CLASP_DEPLOYMENT_ID secret not set — editor code updated, but the LIVE web app was NOT redeployed. Redeploy manually (Deploy → Manage deployments → New version) or add the secret."
+          fi

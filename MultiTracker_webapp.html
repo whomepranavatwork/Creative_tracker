@@ -555,8 +555,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class="req">*</span> <span class="hint">Instagram auto-fills</span></label>
-        <select id="person" onchange="onPersonInput()"></select>
+        <label>Person Full Name <span class="hint">type to search · blank = None</span></label>
+        <input type="text" id="person" list="person-list" placeholder="None"
+               oninput="onPersonInput()" autocomplete="off">
+        <datalist id="person-list"></datalist>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -743,6 +745,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     populateDropdowns();
     restoreFromStorage();
+    onPersonInput(); // sync Onboarding Month required-marker with restored person
 
     const hiddenSel = document.getElementById("tab-name");
     const pillsWrap = document.getElementById("tab-pills");
@@ -771,6 +774,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   // ── Tracker switching ─────────────────────────────────────
+  let _pendingTracker = null;
+
   function selectTrackerPill(name) {
     if (name === currentTracker) return;
     document.querySelectorAll(".tracker-pill").forEach(b => {
@@ -780,11 +785,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("sheet-info").textContent = "Switching tracker…";
     document.getElementById("tab-dot").classList.remove("visible");
 
+    _pendingTracker = name;
     google.script.run
       .withSuccessHandler(data => {
+        // Discard if the user clicked another tracker while this call was in flight
+        if (_pendingTracker !== name) return;
+        _pendingTracker = null;
         applyTrackerData(data);
       })
-      .withFailureHandler(err => showBanner("Failed to switch tracker: " + err.message, "err"))
+      .withFailureHandler(err => {
+        if (_pendingTracker !== name) return;
+        _pendingTracker = null;
+        showBanner("Failed to switch tracker: " + err.message, "err");
+      })
       .selectTracker(name);
   }
 
@@ -803,7 +816,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         btn.disabled = false; btn.textContent = "↺ Refresh dropdowns";
         showBanner("Refresh failed: " + err.message, "err");
       })
-      .refreshCache(currentTracker);
+      .refreshCache(currentTracker, document.getElementById("tab-name").value || null);
   }
 
   // ── Tab switching ─────────────────────────────────────────
@@ -876,7 +889,14 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("canLive",         opts.canLive);
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
-    fill("person",          opts.person || []);
+
+    // Person is a free-text input with datalist autocomplete (matches as you type)
+    const dl = document.getElementById("person-list");
+    dl.innerHTML = "";
+    (opts.person || []).forEach(v => {
+      if (!v || v === "None") return;
+      const o = document.createElement("option"); o.value = v; dl.appendChild(o);
+    });
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
@@ -900,7 +920,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   function onPersonInput() {
     const person = document.getElementById("person").value.trim();
     const ig     = personMap[person];
-    document.getElementById("instagram").value = ig || "";
+    const igEl   = document.getElementById("instagram");
+    // Only auto-fill on an exact person match; clear when person is emptied.
+    // Don't wipe a manually typed handle on every keystroke of a partial name.
+    if (ig) igEl.value = ig;
+    else if (!person || person === "None") igEl.value = "";
     const reqEl = document.getElementById("req-onboarding");
     if (reqEl) reqEl.style.display = (person && person !== "None") ? "" : "none";
   }
@@ -1193,7 +1217,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       intInf:          document.getElementById("intInf").value,
       adType:          document.getElementById("adType").value,
       language:        document.getElementById("language").value,
-      person:          document.getElementById("person").value.trim(),
+      person:          document.getElementById("person").value.trim() || "None",
       creatorType:     document.getElementById("creatorType").value,
       onboardingMonth: document.getElementById("onboardingMonth").value,
       instagram:       document.getElementById("instagram").value.trim(),
@@ -1207,10 +1231,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       { val: shared.intInf,   label: "INT / INF",           id: "intInf" },
       { val: shared.adType,   label: "Ad Type",             id: "adType" },
       { val: shared.language, label: "Language",            id: "language" },
-      { val: shared.person,   label: "Person Full Name",    id: "person" },
       { val: shared.raisedBy, label: "Raised By",           id: "raisedBy" }
     ];
-    if (shared.person && shared.person !== "None") {
+    if (shared.person !== "None") {
       required.push({ val: shared.onboardingMonth, label: "Inf Onboarding Month", id: "onboardingMonth" });
     }
     const missing = required.filter(f => !f.val);
@@ -1298,16 +1321,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         showBanner("Error: " + err.message, "err");
       })
       .addEntries({
-        tabName:          document.getElementById("tab-name").value,
-        trackerName:      currentTracker,
-        colIndex:         sheetCtx.colIndex,
-        headerRow:        sheetCtx.headerRow,
-        lastDataRow:      sheetCtx.lastDataRow,
-        nextSno:          sheetCtx.nextSno,
-        totalRows:        sheetCtx.totalRows,
-        adNameFormula:      sheetCtx.adNameFormula,
-        adNameFormulaRow:   sheetCtx.adNameFormulaRow,
-        ytAdNameFormulaRow: sheetCtx.ytAdNameFormulaRow,
+        // Server loads schema, row position, and S.No. itself (cached + validated
+        // + recomputed inside the submit lock) — only intent is sent from the client.
+        tabName:     document.getElementById("tab-name").value,
+        trackerName: currentTracker,
         shared, cuts
       });
   }
