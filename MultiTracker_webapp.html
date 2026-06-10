@@ -899,27 +899,21 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       .getSheetContext(tab, currentTracker);
   }
 
-  // Shows the live count PLUS the actual last entry (S.No · product · date) and a
-  // "verify" link that opens the sheet focused on that exact row — evidence the
-  // detected position is right, not just a number to trust.
+  // Shows the live count and a "verify" link that opens the sheet focused on the
+  // exact row the NEXT entry will be written to.
   function renderSheetInfo(ctx) {
     const info = document.getElementById("sheet-info");
     info.textContent = "";
     const txt = document.createElement("span");
-    let s = `${ctx.totalRows} entries · Next S.No: ${ctx.nextSno}`;
-    if (ctx.lastEntry && ctx.lastEntry.sno) {
-      s += ` · Last: #${ctx.lastEntry.sno}`;
-      if (ctx.lastEntry.product) s += ` ${ctx.lastEntry.product}`;
-      if (ctx.lastEntry.date)    s += ` (${ctx.lastEntry.date})`;
-    }
-    txt.textContent = s;
+    txt.textContent = `${ctx.totalRows} entries · Next S.No: ${ctx.nextSno}`;
     info.appendChild(txt);
-    if (ctx.lastEntry && ctx.sheetUrl) {
+    if (ctx.sheetUrl && ctx.lastDataRow != null) {
+      const nextRow = ctx.lastDataRow + 1;
       const a = document.createElement("a");
-      a.href = ctx.sheetUrl + "&range=A" + ctx.lastEntry.row;
+      a.href = ctx.sheetUrl + "&range=A" + nextRow;
       a.target = "_blank"; a.rel = "noopener noreferrer";
       a.textContent = "↗ verify";
-      a.title = "Open the sheet at row " + ctx.lastEntry.row + " — the detected last entry";
+      a.title = "Open the sheet at row " + nextRow + " — where the next entry will be written";
       a.style.cssText = "margin-left:8px;color:var(--accent);text-decoration:none;font-weight:600;";
       info.appendChild(a);
     }

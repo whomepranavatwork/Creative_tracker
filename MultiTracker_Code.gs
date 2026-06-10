@@ -231,24 +231,6 @@ function getSheetContext(tabName, trackerName) {
 
   const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
 
-  // Last-entry preview — lets the user visually verify the detected position
-  // against the sheet instead of trusting a bare count.
-  let lastEntry = null;
-  if (ls.lastDataRow > sc.headerRow) {
-    try {
-      const ci      = sc.colIndex;
-      const rowVals = sheet.getRange(ls.lastDataRow, 1, 1, sheet.getLastColumn()).getValues()[0];
-      const fmt = v => (v instanceof Date)
-        ? Utilities.formatDate(v, Session.getScriptTimeZone(), "dd/MM/yyyy")
-        : String(v);
-      lastEntry = {
-        row:     ls.lastDataRow,
-        sno:     ci.sno     != null ? String(rowVals[ci.sno])     : "",
-        date:    ci.date    != null ? fmt(rowVals[ci.date])       : "",
-        product: ci.product != null ? String(rowVals[ci.product]) : ""
-      };
-    } catch (e) { /* preview is best-effort */ }
-  }
   const sheetUrl = ss.getUrl() + "#gid=" + sheet.getSheetId();
 
   return {
@@ -257,7 +239,6 @@ function getSheetContext(tabName, trackerName) {
     today,
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
-    lastEntry,
     sheetUrl,
     adNameFormula:      sc.adNameFormula,
     adNameFormulaRow:   sc.adNameFormulaRow,
