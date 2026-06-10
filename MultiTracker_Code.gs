@@ -316,10 +316,11 @@ function _validateSchema(sheet, sc) {
 function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
   try {
     const tz       = Session.getScriptTimeZone();
-    const startRow = Math.max(headerRow + 1, lastDataRow - 2);
-    const numRows  = (lastDataRow - startRow + 1) + 2;
+    const startRow = Math.max(headerRow + 1, lastDataRow - 4); // 5 rows above the write row
+    const numRows  = (lastDataRow - startRow + 1) + 5;         // + 5 rows below it
     const cols     = [colIndex.sno, colIndex.date, colIndex.product, colIndex.adName,
-                      colIndex.drive45, colIndex.drive916].filter(c => c != null);
+                      colIndex.drive45, colIndex.drive916, colIndex.live,
+                      colIndex.canLive, colIndex.raisedBy].filter(c => c != null);
     if (!cols.length || numRows <= 0) return null;
     const maxC = Math.max(...cols) + 1;
     const safeRows = Math.min(numRows, Math.max(sheet.getMaxRows() - startRow + 1, 0));
@@ -334,7 +335,10 @@ function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
       product: pick(r, colIndex.product),
       adName:  pick(r, colIndex.adName).slice(0, 80),
       d45:     pick(r, colIndex.drive45),
-      d916:    pick(r, colIndex.drive916)
+      d916:    pick(r, colIndex.drive916),
+      live:    pick(r, colIndex.live),
+      canLive: pick(r, colIndex.canLive),
+      raisedBy: pick(r, colIndex.raisedBy)
     }));
   } catch (e) {
     return null; // snapshot is best-effort, never blocks the flow

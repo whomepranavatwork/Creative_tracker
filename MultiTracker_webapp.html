@@ -104,8 +104,12 @@ body {
 .tab-info-dot.visible { display: block; }
 
 /* ── Boundary snapshot (mini sheet view) ── */
+.snap-title {
+  margin-top: 12px; font-size: 11px; font-weight: 600; color: var(--muted);
+  text-transform: uppercase; letter-spacing: .5px;
+}
 .snap-wrap {
-  margin-top: 10px; border: 1px solid #d0d7de; border-radius: 8px;
+  margin-top: 6px; border: 1px solid #d0d7de; border-radius: 8px;
   overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff;
 }
 .snap { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 640px; }
@@ -958,7 +962,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const tbl   = document.createElement("table"); tbl.className = "snap";
     const thead = document.createElement("thead");
     const thr   = document.createElement("tr");
-    ["", "S.No.", "Date Added", "Product Name", "Ad Name", "Drive (4:5)", "Drive (9:16)"].forEach((h, i) => {
+    ["", "S.No.", "Date Added", "Product Name", "Ad Name", "Drive (4:5)", "Drive (9:16)", "Live?", "Can Take Live?", "Raised By"].forEach((h, i) => {
       const th = document.createElement("th");
       if (i === 0) th.className = "sn-rn";
       th.textContent = h;
@@ -992,6 +996,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         }
         tr.appendChild(td);
       });
+      [r.live, r.canLive, r.raisedBy].forEach(v => {
+        const td = document.createElement("td"); td.textContent = v; td.title = v;
+        tr.appendChild(td);
+      });
       if (isNext) {
         const tag = document.createElement("span");
         tag.className = "sn-tag"; tag.textContent = " ← next entry";
@@ -1000,6 +1008,11 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       tbody.appendChild(tr);
     });
     tbl.appendChild(tbody);
+
+    const title = document.createElement("div");
+    title.className = "snap-title";
+    title.textContent = "Check the sheet boundary — new entries will be written at the highlighted row";
+    wrap.appendChild(title);
 
     const w = document.createElement("div"); w.className = "snap-wrap";
     w.appendChild(tbl);
