@@ -27,6 +27,11 @@ const TRACKERS = {
   },
   "Nutrition": {
     spreadsheetId: "1wOYhs0IB24u_fIrrssyZaAuFvpbaItjHgiDIkXBv0WU",
+    narratives: [
+      "Pure & Natural/Ingredients", "Daily Energy", "Summer", "Clinically Studied",
+      "Zero Added Sugar", "Product First", "Absorption", "Strength", "Problem Solution",
+      "Most Tested", "Sleep & Stress", "Muscle Recovery", "Benefits", "Features"
+    ],
     tabProductMap: {
       "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
       "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
@@ -146,7 +151,7 @@ function _loadBucketsFromSheet(trackerName) {
                          "Testimonial", "Carousel", "UGC", "Organic Reviews", "Hair Warriors"],
       raisedBy:        ["Abhijeet","Varsha","Bhavya","Devansh","Lakshya","Purva","Jay","Cath","Disha","Aniket","Nivedita","Aakash","Karan","Pranav","Dipen","Sutanto"],
       person:          ["None", ...buckets.person],
-      narrative:       ["Problem-Solution", "Results/Assurance", "Myth Busting",
+      narrative:       t.narratives || ["Problem-Solution", "Results/Assurance", "Myth Busting",
                         "Trust", "Features", "Why MM is different", "Safety",
                         "Science", "BeforeAfter", "Transplant or PRP",
                         "Product First", "Results/Assurance/ProductFirst"],
@@ -682,7 +687,7 @@ function addEntries(payload) {
       // drive URL sits in the correct ratio column. Turns "trust me" into a
       // machine-checked assertion against the actual sheet.
       let verified = false;
-      let readbackEcho = "";
+
       try {
         const width = sheet.getLastColumn();
         const back  = sheet.getRange(firstNewRow, 1, rows.length, width).getValues();
@@ -696,17 +701,6 @@ function addEntries(payload) {
                         String(r[colIndex.drive916]) === want916;
           return ok45 && ok916;
         });
-        // Read back the first row to see what actually landed in those 4 columns
-        const r0 = back[0] || [];
-        const rb = (key) => colIndex[key] != null ? `"${String(r0[colIndex[key]]).slice(0,20)}"` : "n/a";
-        // Check if those cells contain array formulas (would explain silent overwrites)
-        const fKeys = ["narrative","adFormat","creatorType","onboardingMonth"];
-        const formulaCells = fKeys.filter(k => {
-          if (colIndex[k] == null) return false;
-          try { return !!sheet.getRange(firstNewRow, colIndex[k]+1).getFormula(); } catch(e) { return false; }
-        });
-        readbackEcho = ` | readback[0]: narrative=${rb("narrative")} adFormat=${rb("adFormat")} creatorType=${rb("creatorType")} onboardingMonth=${rb("onboardingMonth")}` +
-                       (formulaCells.length ? ` | FORMULA in cells: ${formulaCells.join(",")}` : " | no formulas in those cells");
       } catch (e) { /* verification is best-effort */ }
 
       const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
@@ -721,13 +715,10 @@ function addEntries(payload) {
       Object.entries(colIndex).forEach(([k, c]) => { colName[c] = HEADER_MAP[k]; });
       const rejectedMsg = writeFailures.map(f =>
         `${colName[f.col] || "col " + (f.col + 1)} @ row ${f.row} (value "${f.val}")`).join("; ");
-      const c0 = cuts[0] || {};
-      const payloadEcho = ` | payload: narrative="${c0.narrative}" adFormat="${c0.adFormat}" creatorType="${shared.creatorType}" onboardingMonth="${shared.onboardingMonth}" instagram="${shared.instagram}" additionalInfo="${shared.additionalInfo}"`;
       const diag = ` [${cuts.length} cut${cuts.length === 1 ? "" : "s"} received · ` +
                    `${writtenCols.size}/${Object.keys(colIndex).length} columns written` +
                    (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
-                   (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") +
-                   payloadEcho + readbackEcho + `]`;
+                   (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") + `]`;
 
       return {
         ok:  true,
