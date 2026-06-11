@@ -777,6 +777,12 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("today-label").textContent =
       new Date().toLocaleDateString("en-GB", { weekday:"long", day:"numeric", month:"long" });
 
+    // Prevent browser back/forward from navigating away from the SPA
+    history.pushState(null, '', location.href);
+    window.addEventListener('popstate', () => {
+      history.pushState(null, '', location.href);
+    });
+
     google.script.run
       .withSuccessHandler(data => {
         trackerNames = data.trackerNames || [];
@@ -872,7 +878,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   // Called when a tab pill is clicked.
   // Same tracker → just activate + load sheet context.
   // Different tracker → load tracker data first, then activate the clicked tab.
-  let _pendingTracker = null;
+  let _pendingTabLoad = 0;
 
   function selectGroupedTab(trackerName, tabName) {
     if (trackerName === currentTracker) {
@@ -886,16 +892,14 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     document.getElementById("sheet-info").textContent = "Switching tracker…";
     document.getElementById("tab-dot").classList.remove("visible");
 
-    _pendingTracker = trackerName;
+    const reqId = ++_pendingTabLoad;
     google.script.run
       .withSuccessHandler(data => {
-        if (_pendingTracker !== trackerName) return;
-        _pendingTracker = null;
+        if (reqId !== _pendingTabLoad) return;
         applyTrackerData(data, tabName);
       })
       .withFailureHandler(err => {
-        if (_pendingTracker !== trackerName) return;
-        _pendingTracker = null;
+        if (reqId !== _pendingTabLoad) return;
         showBanner("Failed to switch tracker: " + err.message, "err");
       })
       .selectTracker(trackerName);
