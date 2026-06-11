@@ -623,7 +623,7 @@ function addEntries(payload) {
         rows.push(row);
       });
 
-      writeRows(sheet, firstNewRow, rows, writtenCols);
+      const writeFailures = writeRows(sheet, firstNewRow, rows, writtenCols);
 
       if (colIndex.sno != null && !skipCols.has(colIndex.sno)) {
         try {
@@ -690,9 +690,15 @@ function addEntries(payload) {
       const skippedNames = Object.entries(colIndex)
         .filter(([k, c]) => skipCols.has(c))
         .map(([k]) => HEADER_MAP[k]);
+      // Name rejected cells by header so validation rejections are visible
+      const colName = {};
+      Object.entries(colIndex).forEach(([k, c]) => { colName[c] = HEADER_MAP[k]; });
+      const rejectedMsg = writeFailures.map(f =>
+        `${colName[f.col] || "col " + (f.col + 1)} @ row ${f.row} (value "${f.val}")`).join("; ");
       const diag = ` [${cuts.length} cut${cuts.length === 1 ? "" : "s"} received · ` +
                    `${writtenCols.size}/${Object.keys(colIndex).length} columns written` +
-                   (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") + `]`;
+                   (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
+                   (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") + `]`;
 
       return {
         ok:  true,
@@ -869,22 +875,33 @@ function getProtectedCols(sheet, lastCol) {
 
 // Writes only the columns in writtenCols (sorted, batched into contiguous ranges).
 // Untracked columns are never touched — prevents blanking helper/formula columns.
+// Writes column by column (not in contiguous multi-column blocks): the tracker
+// sheets use strict "reject input" data validation on most columns, and one
+// rejected value aborts the entire setValues call it is part of. Per-column
+// writes (with a per-cell fallback) contain the blast radius of a rejected
+// value to that single cell and report exactly what was rejected.
+// Returns an array of { col, row, val, err } for every cell the sheet refused.
 function writeRows(sheet, firstNewRow, rows, writtenCols) {
-  const cols = [...writtenCols].sort((a, b) => a - b);
-  if (cols.length === 0) return;
+  const cols   = [...writtenCols].sort((a, b) => a - b);
+  const failed = [];
 
-  let segStart = cols[0];
-  let segEnd   = cols[0];
-
-  for (let i = 1; i <= cols.length; i++) {
-    if (i < cols.length && cols[i] === segEnd + 1) {
-      segEnd = cols[i];
-    } else {
-      const segData = rows.map(function(row) { return row.slice(segStart, segEnd + 1); });
-      sheet.getRange(firstNewRow, segStart + 1, rows.length, segEnd - segStart + 1).setValues(segData);
-      if (i < cols.length) { segStart = cols[i]; segEnd = cols[i]; }
+  cols.forEach(function(c) {
+    const colData = rows.map(function(row) { return [row[c]]; });
+    try {
+      sheet.getRange(firstNewRow, c + 1, rows.length, 1).setValues(colData);
+    } catch (e) {
+      // Column write rejected (data validation / protection) — salvage cell by cell
+      rows.forEach(function(row, i) {
+        try {
+          sheet.getRange(firstNewRow + i, c + 1).setValue(row[c]);
+        } catch (e2) {
+          failed.push({ col: c, row: firstNewRow + i, val: String(row[c]),
+                        err: String((e2 && e2.message) || e2) });
+        }
+      });
     }
-  }
+  });
+  return failed;
 }
 
 function setHyperlinks(sheet, firstNewRow, rows, colIndex, skipCols) {
