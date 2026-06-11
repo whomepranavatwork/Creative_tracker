@@ -682,6 +682,7 @@ function addEntries(payload) {
       // drive URL sits in the correct ratio column. Turns "trust me" into a
       // machine-checked assertion against the actual sheet.
       let verified = false;
+      let readbackEcho = "";
       try {
         const width = sheet.getLastColumn();
         const back  = sheet.getRange(firstNewRow, 1, rows.length, width).getValues();
@@ -695,6 +696,10 @@ function addEntries(payload) {
                         String(r[colIndex.drive916]) === want916;
           return ok45 && ok916;
         });
+        // Read back the first row to see what actually landed in those 4 columns
+        const r0 = back[0] || [];
+        const rb = (key) => colIndex[key] != null ? `"${String(r0[colIndex[key]]).slice(0,20)}"` : "n/a";
+        readbackEcho = ` | readback[0]: narrative=${rb("narrative")} adFormat=${rb("adFormat")} creatorType=${rb("creatorType")} onboardingMonth=${rb("onboardingMonth")}`;
       } catch (e) { /* verification is best-effort */ }
 
       const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
@@ -715,7 +720,7 @@ function addEntries(payload) {
                    `${writtenCols.size}/${Object.keys(colIndex).length} columns written` +
                    (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
                    (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") +
-                   payloadEcho + `]`;
+                   payloadEcho + readbackEcho + `]`;
 
       return {
         ok:  true,
