@@ -240,15 +240,17 @@ function getSheetContext(tabName, trackerName) {
 
   let sc = null; // static: headerRow, colIndex, adNameFormula, formula rows
   try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) { sc = null; }
-  if (!sc) {
+  // Skip formula-row freshness checks here — those are only critical before a
+  // write. Saves 2 API calls on every tab switch (addEntries still checks).
+  if (!sc || !_validateSchema(sheet, sc, false)) {
     sc = _buildSheetContext(sheet);
     try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
   }
 
-  const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
+  // Single combined read: live-state detection + boundary snapshot in one call.
+  const ls = _computeLiveStateAndBoundary(sheet, sc.colIndex, sc.headerRow);
 
   const sheetUrl = ss.getUrl() + "#gid=" + sheet.getSheetId();
-  const boundary = _boundarySnapshot(sheet, sc.colIndex, sc.headerRow, ls.lastDataRow);
 
   return {
     sheetName:       tabName,
@@ -257,7 +259,7 @@ function getSheetContext(tabName, trackerName) {
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
     sheetUrl,
-    boundary,
+    boundary:        ls.boundary,
     adNameFormula:      sc.adNameFormula,
     adNameFormulaRow:   sc.adNameFormulaRow,
     ytAdNameFormulaRow: sc.ytAdNameFormulaRow,
@@ -314,11 +316,12 @@ function _buildSheetContext(sheet) {
   return sc;
 }
 
-// Returns true if every cached column index still carries the expected header
-// text on the live sheet AND the cache covers all headers that are present on
-// the live sheet AND the cached formula rows still contain formulas.
-// Any mismatch forces a full rebuild before the next write.
-function _validateSchema(sheet, sc) {
+// Returns true if the cached schema is still valid against the live sheet.
+// checkFormulas (default true): when false, skips the formula-row freshness
+// checks (saves 2 API calls). Safe to skip for display calls (getSheetContext)
+// since formula drift only matters before a write (addEntries always uses true).
+function _validateSchema(sheet, sc, checkFormulas) {
+  if (checkFormulas === undefined) checkFormulas = true;
   try {
     if (!sc || !sc.colIndex || sc.headerRow == null) return false;
     const readCols = Math.min(sheet.getLastColumn(), 50);
@@ -345,20 +348,22 @@ function _validateSchema(sheet, sc) {
       if (!cachedKeys.has(k)) return false;
     }
 
-    // 3. If adNameFormulaRow is cached, the cell must still contain a formula.
-    //    Rows deleted after caching shift row numbers — a stale formula row
-    //    would silently skip Ad Name on the next write.
-    if (sc.adNameFormulaRow != null && sc.colIndex.adName != null) {
-      const lastRow = sheet.getLastRow();
-      if (sc.adNameFormulaRow > lastRow) return false; // row was deleted
-      const f = sheet.getRange(sc.adNameFormulaRow, sc.colIndex.adName + 1).getFormula();
-      if (!f) return false; // formula was removed or row was cleared
-    }
-    if (sc.ytAdNameFormulaRow != null && sc.colIndex.ytAdName != null) {
-      const lastRow = sheet.getLastRow();
-      if (sc.ytAdNameFormulaRow > lastRow) return false;
-      const f = sheet.getRange(sc.ytAdNameFormulaRow, sc.colIndex.ytAdName + 1).getFormula();
-      if (!f) return false;
+    // 3. Formula row freshness — skipped for display calls (checkFormulas=false).
+    //    Rows deleted after caching shift row numbers; a stale formula row would
+    //    silently skip Ad Name on the next write, so addEntries always checks.
+    if (checkFormulas) {
+      if (sc.adNameFormulaRow != null && sc.colIndex.adName != null) {
+        const lastRow = sheet.getLastRow();
+        if (sc.adNameFormulaRow > lastRow) return false;
+        const f = sheet.getRange(sc.adNameFormulaRow, sc.colIndex.adName + 1).getFormula();
+        if (!f) return false;
+      }
+      if (sc.ytAdNameFormulaRow != null && sc.colIndex.ytAdName != null) {
+        const lastRow = sheet.getLastRow();
+        if (sc.ytAdNameFormulaRow > lastRow) return false;
+        const f = sheet.getRange(sc.ytAdNameFormulaRow, sc.colIndex.ytAdName + 1).getFormula();
+        if (!f) return false;
+      }
     }
 
     return true;
@@ -400,6 +405,99 @@ function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
   } catch (e) {
     return null; // snapshot is best-effort, never blocks the flow
   }
+}
+
+// Combined live-state + boundary read for getSheetContext.
+// Reads all columns needed by both in a single sheet call instead of two,
+// then extracts the boundary rows from the already-read data array.
+// Returns { nextSno, lastDataRow, totalRows, boundary }.
+function _computeLiveStateAndBoundary(sheet, colIndex, headerRow) {
+  const tz      = Session.getScriptTimeZone();
+  const lastRow  = sheet.getLastRow();
+  const scanEnd  = Math.min(lastRow, headerRow + DATA_SCAN_LIMIT);
+  const scanRows = scanEnd - headerRow;
+  let nextSno     = 1;
+  let lastDataRow = headerRow;
+
+  if (scanRows <= 0) return { nextSno, lastDataRow, totalRows: 0, boundary: null };
+
+  const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null);
+  const adNameCol = colIndex.adName != null ? colIndex.adName : null;
+  const snoCol    = colIndex.sno    != null ? colIndex.sno    : null;
+  // Extra columns needed by the boundary display — read once alongside detection cols.
+  const displayCols = [colIndex.date, colIndex.product, colIndex.live,
+                       colIndex.canLive, colIndex.raisedBy].filter(c => c != null);
+  const allCols = [...new Set([...driveCols,
+                   ...(adNameCol != null ? [adNameCol] : []),
+                   ...(snoCol    != null ? [snoCol]    : []),
+                   ...displayCols])];
+
+  if (allCols.length === 0) return { nextSno, lastDataRow, totalRows: 0, boundary: null };
+
+  const minC = Math.min(...allCols);
+  const maxC = Math.max(...allCols);
+  const data = sheet.getRange(headerRow + 1, minC + 1, scanRows, maxC - minC + 1).getValues();
+
+  const needDrive  = driveCols.length > 0;
+  const needAdName = adNameCol != null;
+
+  for (let i = data.length - 1; i >= 0; i--) {
+    const hasDrive  = needDrive && driveCols.some(c => {
+      const v = data[i][c - minC];
+      return typeof v === "string" && v.startsWith("https://");
+    });
+    const hasAdName = needAdName &&
+      (String(data[i][adNameCol - minC] || "")).split("_").length >= 6;
+    const isReal = needDrive && needAdName ? hasDrive || hasAdName
+                 : needDrive               ? hasDrive
+                 :                          hasAdName;
+    if (isReal) { lastDataRow = headerRow + 1 + i; break; }
+  }
+
+  if (snoCol != null && lastDataRow > headerRow) {
+    nextSno = lastDataRow - headerRow + 1;
+    for (let i = lastDataRow - headerRow - 1; i >= 0; i--) {
+      const n = parseInt(data[i][snoCol - minC], 10);
+      if (!isNaN(n)) { nextSno = n + 1; break; }
+    }
+  }
+
+  // Extract boundary rows from the already-read data — no second API call.
+  let boundary = null;
+  try {
+    const startRow    = Math.max(headerRow + 1, lastDataRow - 2);
+    const dataEndRow  = headerRow + data.length; // last row covered by data
+    const endRow      = Math.min(lastDataRow + 2, dataEndRow);
+    const startOffset = startRow - (headerRow + 1);
+    const endOffset   = endRow   - (headerRow + 1);
+    const fmt  = function(v) {
+      return (v instanceof Date) ? Utilities.formatDate(v, tz, "dd/MM/yyyy") : String(v);
+    };
+    const pick = function(r, c) {
+      if (c == null || c < minC || (c - minC) >= r.length) return "";
+      return String(r[c - minC]);
+    };
+    boundary = [];
+    for (let i = startOffset; i <= endOffset; i++) {
+      if (i < 0 || i >= data.length) continue;
+      const r = data[i];
+      boundary.push({
+        row:      headerRow + 1 + i,
+        sno:      pick(r, colIndex.sno),
+        date:     colIndex.date != null ? fmt(r[colIndex.date - minC] || "") : "",
+        product:  pick(r, colIndex.product),
+        adName:   pick(r, colIndex.adName).slice(0, 80),
+        d45:      pick(r, colIndex.drive45),
+        d916:     pick(r, colIndex.drive916),
+        live:     pick(r, colIndex.live),
+        canLive:  pick(r, colIndex.canLive),
+        raisedBy: pick(r, colIndex.raisedBy)
+      });
+    }
+    if (!boundary.length) boundary = null;
+  } catch (e) { boundary = null; }
+
+  return { nextSno, lastDataRow, totalRows: lastDataRow - headerRow, boundary };
 }
 
 // Scans the sheet to find lastDataRow, nextSno, totalRows.

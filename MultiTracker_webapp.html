@@ -133,13 +133,13 @@ body {
 .snap a { color: #1a73e8; text-decoration: underline; }
 
 /* ── Grouped tab nav ── */
-.grouped-tabs { display: flex; flex-direction: column; gap: 10px; }
-.grouped-row  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grouped-tabs  { display: flex; flex-direction: column; gap: 12px; }
 .grouped-label {
-  font-size: 10px; font-weight: 700; color: var(--light);
-  text-transform: uppercase; letter-spacing: .6px;
-  min-width: 52px; flex-shrink: 0;
+  display: block; font-size: 10px; font-weight: 700; color: var(--light);
+  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 5px;
 }
+.grouped-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.grouped-pills .tab-pill { font-size: 12px; padding: 5px 13px; }
 
 /* ── Progress ── */
 .progress {
@@ -836,14 +836,16 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const wrap = document.getElementById("grouped-tabs");
     wrap.innerHTML = "";
     Object.entries(allTrackerTabs).forEach(([tracker, tabs]) => {
-      const row = document.createElement("div");
-      row.className = "grouped-row";
+      const group = document.createElement("div");
+      group.className = "grouped-tracker";
 
       const label = document.createElement("span");
       label.className = "grouped-label";
       label.textContent = tracker;
-      row.appendChild(label);
+      group.appendChild(label);
 
+      const pills = document.createElement("div");
+      pills.className = "grouped-pills";
       tabs.forEach(tab => {
         const btn = document.createElement("button");
         btn.className = "tab-pill";
@@ -851,10 +853,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         btn.dataset.tab     = tab;
         btn.textContent     = tab;
         btn.onclick = () => selectGroupedTab(tracker, tab);
-        row.appendChild(btn);
+        pills.appendChild(btn);
       });
-
-      wrap.appendChild(row);
+      group.appendChild(pills);
+      wrap.appendChild(group);
     });
   }
 
