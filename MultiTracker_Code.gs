@@ -296,9 +296,8 @@ function _buildSheetContext(sheet) {
 
 // Returns true if every cached column index still carries the expected header
 // text on the live sheet AND the cache covers all headers that are present on
-// the live sheet. The completeness check guards against partial caches from
-// older code versions: a partial cache passes column-correctness but silently
-// skips missing columns on write.
+// the live sheet AND the cached formula rows still contain formulas.
+// Any mismatch forces a full rebuild before the next write.
 function _validateSchema(sheet, sc) {
   try {
     if (!sc || !sc.colIndex || sc.headerRow == null) return false;
@@ -311,9 +310,7 @@ function _validateSchema(sheet, sc) {
       String(row[c]).trim().toLowerCase() === HEADER_MAP[key].toLowerCase());
     if (!allCachedValid) return false;
 
-    // 2. Count how many HEADER_MAP headers are actually present on this tab.
-    //    The cache must cover every one of them — a partial cache misses columns
-    //    silently.
+    // 2. The cache must cover every HEADER_MAP header present on this tab.
     const reverseMap = {};
     Object.entries(HEADER_MAP).forEach(([key, text]) => {
       reverseMap[text.toLowerCase()] = key;
@@ -325,8 +322,25 @@ function _validateSchema(sheet, sc) {
     });
     const cachedKeys = new Set(Object.keys(sc.colIndex));
     for (const k of liveKeys) {
-      if (!cachedKeys.has(k)) return false; // cache is missing a live header
+      if (!cachedKeys.has(k)) return false;
     }
+
+    // 3. If adNameFormulaRow is cached, the cell must still contain a formula.
+    //    Rows deleted after caching shift row numbers — a stale formula row
+    //    would silently skip Ad Name on the next write.
+    if (sc.adNameFormulaRow != null && sc.colIndex.adName != null) {
+      const lastRow = sheet.getLastRow();
+      if (sc.adNameFormulaRow > lastRow) return false; // row was deleted
+      const f = sheet.getRange(sc.adNameFormulaRow, sc.colIndex.adName + 1).getFormula();
+      if (!f) return false; // formula was removed or row was cleared
+    }
+    if (sc.ytAdNameFormulaRow != null && sc.colIndex.ytAdName != null) {
+      const lastRow = sheet.getLastRow();
+      if (sc.ytAdNameFormulaRow > lastRow) return false;
+      const f = sheet.getRange(sc.ytAdNameFormulaRow, sc.colIndex.ytAdName + 1).getFormula();
+      if (!f) return false;
+    }
+
     return true;
   } catch (e) {
     return false;
