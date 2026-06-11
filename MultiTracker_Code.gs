@@ -295,16 +295,39 @@ function _buildSheetContext(sheet) {
 }
 
 // Returns true if every cached column index still carries the expected header
-// text on the live sheet. Guards against silent wrong-column writes after
-// someone inserts/moves/deletes columns (cache would otherwise stay stale).
+// text on the live sheet AND the cache covers all headers that are present on
+// the live sheet. The completeness check guards against partial caches from
+// older code versions: a partial cache passes column-correctness but silently
+// skips missing columns on write.
 function _validateSchema(sheet, sc) {
   try {
     if (!sc || !sc.colIndex || sc.headerRow == null) return false;
     const readCols = Math.min(sheet.getLastColumn(), 50);
     const row = sheet.getRange(sc.headerRow, 1, 1, readCols).getValues()[0];
-    return Object.entries(sc.colIndex).every(([key, c]) =>
+
+    // 1. Every key the cache claims must still match the live header cell.
+    const allCachedValid = Object.entries(sc.colIndex).every(([key, c]) =>
       HEADER_MAP[key] != null && c < readCols &&
       String(row[c]).trim().toLowerCase() === HEADER_MAP[key].toLowerCase());
+    if (!allCachedValid) return false;
+
+    // 2. Count how many HEADER_MAP headers are actually present on this tab.
+    //    The cache must cover every one of them — a partial cache misses columns
+    //    silently.
+    const reverseMap = {};
+    Object.entries(HEADER_MAP).forEach(([key, text]) => {
+      reverseMap[text.toLowerCase()] = key;
+    });
+    const liveKeys = new Set();
+    row.forEach(cell => {
+      const k = reverseMap[String(cell).trim().toLowerCase()];
+      if (k) liveKeys.add(k);
+    });
+    const cachedKeys = new Set(Object.keys(sc.colIndex));
+    for (const k of liveKeys) {
+      if (!cachedKeys.has(k)) return false; // cache is missing a live header
+    }
+    return true;
   } catch (e) {
     return false;
   }
