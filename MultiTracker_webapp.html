@@ -486,7 +486,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
 <!-- ── Top bar ── -->
 <div class="topbar">
-  <div class="topbar-title">⚡ Creative Tracker, now quicker</div>
+  <div>
+    <div class="topbar-title">⚡ Creative Tracker</div>
+    <div id="deploy-stamp" style="font-size:10px;color:var(--light);margin-top:2px;letter-spacing:.2px;"></div>
+  </div>
   <div style="display:flex;align-items:center;gap:12px;">
     <div class="topbar-meta" id="today-label"></div>
     <button id="refresh-btn" onclick="refreshDropdowns()" title="Refresh dropdowns from Buckets tab">↺ Refresh dropdowns</button>
@@ -776,6 +779,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     google.script.run
       .withSuccessHandler(data => {
         applyTrackerData(data);
+
+        if (data.deployStamp) {
+          document.getElementById("deploy-stamp").textContent = "deployed " + data.deployStamp;
+        }
 
         // Build tracker pills (hidden if only 1 tracker)
         trackerNames = data.trackerNames || [];

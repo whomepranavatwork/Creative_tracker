@@ -33,12 +33,16 @@ const TRACKERS = {
       "Most Tested", "Sleep & Stress", "Muscle Recovery", "Benefits", "Features"
     ],
     tabProductMap: {
-      "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
+      "Shilajit":  ["Shilajit Gummies", "Shilajit Gummies Advanced"],
       "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
-      "Magnesium": ["Magnesium Gummies", "Creatine Powder"]
+      "Magnesium": ["Magnesium Gummies"]
     }
   }
 };
+
+// Update this string whenever you paste new code and create a new deployment.
+// It appears as small text in the top-left of the webapp.
+const DEPLOY_STAMP = "11 Jun 2026";
 
 const HEADER_SEARCH_LIMIT = 20;
 
@@ -100,6 +104,7 @@ function getTrackers() {
   const data  = selectTracker(first);
   data.trackerNames  = trackerNames;
   data.activeTracker = first;
+  data.deployStamp   = DEPLOY_STAMP;
   return data;
 }
 
@@ -734,10 +739,16 @@ function addEntries(payload) {
                    (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
                    (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") + `]`;
 
+      // On the happy path, show only the base message. Append diagnostics only when
+      // something actually went wrong (verification failure or cells rejected by the sheet).
+      const baseMsg = `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})`;
+      const resultMsg = (!verified || writeFailures.length)
+        ? baseMsg + (!verified ? " — drive links did not read back correctly" : "") + diag
+        : baseMsg;
+
       return {
         ok:  true,
-        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})` +
-             (verified ? " — verified ✓" : " — NOT verified: drive links did not read back correctly") + diag,
+        msg: resultMsg,
         verified,
         nextSno:     String(newNextSno).padStart(5, "0"),
         lastDataRow: newLastDataRow,
