@@ -699,7 +699,14 @@ function addEntries(payload) {
         // Read back the first row to see what actually landed in those 4 columns
         const r0 = back[0] || [];
         const rb = (key) => colIndex[key] != null ? `"${String(r0[colIndex[key]]).slice(0,20)}"` : "n/a";
-        readbackEcho = ` | readback[0]: narrative=${rb("narrative")} adFormat=${rb("adFormat")} creatorType=${rb("creatorType")} onboardingMonth=${rb("onboardingMonth")}`;
+        // Check if those cells contain array formulas (would explain silent overwrites)
+        const fKeys = ["narrative","adFormat","creatorType","onboardingMonth"];
+        const formulaCells = fKeys.filter(k => {
+          if (colIndex[k] == null) return false;
+          try { return !!sheet.getRange(firstNewRow, colIndex[k]+1).getFormula(); } catch(e) { return false; }
+        });
+        readbackEcho = ` | readback[0]: narrative=${rb("narrative")} adFormat=${rb("adFormat")} creatorType=${rb("creatorType")} onboardingMonth=${rb("onboardingMonth")}` +
+                       (formulaCells.length ? ` | FORMULA in cells: ${formulaCells.join(",")}` : " | no formulas in those cells");
       } catch (e) { /* verification is best-effort */ }
 
       const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
