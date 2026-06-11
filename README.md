@@ -142,8 +142,8 @@ Product options are **set per tab** in `tabProductMap`. They do not read from th
 These apply to every file in the batch:
 
 - Product Name, Date Added (defaults to today), INT/INF, Ad Type, Language, Can Take Live?
-- Person Full Name — **autocomplete text field**: type to search the person list from Buckets; leave blank for "None". Instagram auto-fills on an exact name match and clears when the field is emptied (a manually typed handle is not wiped while typing a partial name)
-- **New person names**: submitting with a name not in the list prompts once to add it (plus the Instagram handle, if filled) to the tracker's **Buckets tab** (columns H/I) — the name then autocompletes for everyone. Declining still writes the name to the row, just without saving it to Buckets
+- Person Full Name — **strict dropdown**: only names already in the tracker's Buckets tab (plus "None") are selectable. Selecting a name auto-fills Instagram from `personMap`; selecting "None" clears it
+- **New person names**: the only way to add a name is the **“+ Add person”** button (top right). It writes the name (and Instagram) to the chosen tracker's **Buckets tab** (columns H/I); if the target is the active tracker, the new name is appended to the dropdown and pre-selected. This keeps the sheet's own data-validation dropdowns consistent — free-form names can't be submitted
 - Creator Type (incl. Meta Creator, YT Creator, Hair Warrior), Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
 **Required fields** are marked with a red `*`. Submitting with any required field empty highlights the missing fields and scrolls to the first one.

@@ -604,10 +604,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class="hint">type to search · blank = None</span></label>
-        <input type="text" id="person" list="person-list" placeholder="None"
-               oninput="onPersonInput()" autocomplete="off">
-        <datalist id="person-list"></datalist>
+        <label>Person Full Name <span class="hint">from Buckets · use “+ Add person” for new names</span></label>
+        <select id="person" onchange="onPersonInput()"></select>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -717,7 +715,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 </div>
 
 <!-- ── Add-person modal ── -->
-<div id="person-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title" style="display:none;" onclick="if(event.target===this)closePersonModal(false)">
+<div id="person-modal" role="dialog" aria-modal="true" aria-labelledby="pm-title" style="display:none;" onclick="if(event.target===this)closePersonModal()">
   <div class="pm-box">
     <div class="pm-title" id="pm-title">Add person</div>
     <div class="pm-sub" id="pm-sub"></div>
@@ -735,7 +733,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     </div>
     <div class="pm-msg" id="pm-msg"></div>
     <div class="pm-actions">
-      <button class="btn-sec" id="pm-cancel-btn" onclick="closePersonModal(false)">Cancel</button>
+      <button class="btn-sec" id="pm-cancel-btn" onclick="closePersonModal()">Cancel</button>
       <button class="btn-primary" id="pm-add-btn" onclick="confirmPersonModal()">Add to Buckets</button>
     </div>
   </div>
@@ -1054,13 +1052,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
 
-    // Person is a free-text input with datalist autocomplete (matches as you type)
-    const dl = document.getElementById("person-list");
-    dl.innerHTML = "";
-    (opts.person || []).forEach(v => {
-      if (!v || v === "None") return;
-      const o = document.createElement("option"); o.value = v; dl.appendChild(o);
-    });
+    // Person is a strict dropdown — names must exist in the Buckets tab
+    // (so the sheet's data-validation dropdowns stay consistent). New names
+    // go in via the “+ Add person” button only. Server prepends "None".
+    fill("person", opts.person);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
@@ -1083,12 +1078,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
   function onPersonInput() {
     const person = document.getElementById("person").value.trim();
-    const ig     = personMap[person];
     const igEl   = document.getElementById("instagram");
-    // Only auto-fill on an exact person match; clear when person is emptied.
-    // Don't wipe a manually typed handle on every keystroke of a partial name.
-    if (ig) igEl.value = ig;
-    else if (!person || person === "None") igEl.value = "";
+    if (!person || person === "None") igEl.value = "";
+    else igEl.value = personMap[person] || "";
     const reqEl = document.getElementById("req-onboarding");
     if (reqEl) reqEl.style.display = (person && person !== "None") ? "" : "none";
   }
@@ -1459,15 +1451,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     if (!cuts.length) { showBanner("No files selected.", "err"); return; }
 
-    // New person? Offer to save them to Buckets via the in-app modal, then
-    // continue the submit (whether they added or skipped).
-    if (shared.person !== "None") {
-      const known = (opts.person || []).some(p => String(p).toLowerCase() === shared.person.toLowerCase());
-      if (!known) {
-        openPersonModal(shared.person, shared.instagram, () => _doSubmit(shared, cuts));
-        return;
-      }
-    }
     _doSubmit(shared, cuts);
   }
 
@@ -1507,14 +1490,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   // ── Add-person modal ─────────────────────────────────────
-  let _pmOnDone = null; // continuation called when the modal closes (add or skip)
-
-  function openPersonModal(prefillName, prefillIg, onDone) {
-    _pmOnDone = onDone || null;
-    document.getElementById("pm-sub").textContent = onDone
-      ? '"' + prefillName + '" is not in the person list yet. Add them to a tracker\'s Buckets tab so the name autocompletes for everyone? Your submission continues either way.'
-      : "Writes the name (and Instagram) to the chosen tracker's Buckets tab (columns H / I).";
-    document.getElementById("pm-cancel-btn").textContent = onDone ? "Skip, just submit" : "Cancel";
+  function openPersonModal(prefillName, prefillIg) {
+    document.getElementById("pm-sub").textContent =
+      "Writes the name (and Instagram) to the chosen tracker's Buckets tab (columns H / I).";
+    document.getElementById("pm-cancel-btn").textContent = "Cancel";
 
     // Tracker picker — defaults to the active tracker but the user chooses
     const tSel = document.getElementById("pm-tracker");
@@ -1532,10 +1511,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     setTimeout(() => document.getElementById(prefillName ? "pm-add-btn" : "pm-name").focus(), 50);
   }
 
-  function closePersonModal(added) {
+  function closePersonModal() {
     document.getElementById("person-modal").style.display = "none";
-    const cb = _pmOnDone; _pmOnDone = null;
-    if (cb) cb(added);
   }
 
   function confirmPersonModal() {
@@ -1553,16 +1530,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
           document.getElementById("pm-msg").textContent = (res && res.msg) || "Could not add — try again.";
           return;
         }
-        // Only update the in-page autocomplete if the name went into the
+        // Only update the in-page dropdown if the name went into the
         // tracker currently loaded — other trackers pick it up on switch.
         if (!res.existed && tracker === currentTracker) {
           opts.person = [...(opts.person || []), name];
           if (ig) personMap[name] = ig;
-          const dl = document.getElementById("person-list");
-          const o  = document.createElement("option"); o.value = name; dl.appendChild(o);
+          const sel = document.getElementById("person");
+          const o   = document.createElement("option");
+          o.value = name; o.textContent = name; sel.appendChild(o);
+          sel.value = name;       // pre-select the person just added
+          onPersonInput();        // auto-fill Instagram + onboarding marker
         }
         showBanner(res.msg, res.existed ? "warn" : "ok");
-        closePersonModal(true);
+        closePersonModal();
       })
       .withFailureHandler(err => {
         btn.disabled = false; btn.textContent = "Add to Buckets";
