@@ -709,10 +709,13 @@ function addEntries(payload) {
       Object.entries(colIndex).forEach(([k, c]) => { colName[c] = HEADER_MAP[k]; });
       const rejectedMsg = writeFailures.map(f =>
         `${colName[f.col] || "col " + (f.col + 1)} @ row ${f.row} (value "${f.val}")`).join("; ");
+      const c0 = cuts[0] || {};
+      const payloadEcho = ` | payload: narrative="${c0.narrative}" adFormat="${c0.adFormat}" creatorType="${shared.creatorType}" onboardingMonth="${shared.onboardingMonth}" instagram="${shared.instagram}" additionalInfo="${shared.additionalInfo}"`;
       const diag = ` [${cuts.length} cut${cuts.length === 1 ? "" : "s"} received · ` +
                    `${writtenCols.size}/${Object.keys(colIndex).length} columns written` +
                    (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
-                   (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") + `]`;
+                   (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") +
+                   payloadEcho + `]`;
 
       return {
         ok:  true,
