@@ -685,10 +685,19 @@ function addEntries(payload) {
 
       const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
 
+      // Diagnostics: surface anything that was silently skipped so partial
+      // writes are visible in the banner instead of discovered in the sheet.
+      const skippedNames = Object.entries(colIndex)
+        .filter(([k, c]) => skipCols.has(c))
+        .map(([k]) => HEADER_MAP[k]);
+      const diag = ` [${cuts.length} cut${cuts.length === 1 ? "" : "s"} received · ` +
+                   `${writtenCols.size}/${Object.keys(colIndex).length} columns written` +
+                   (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") + `]`;
+
       return {
         ok:  true,
         msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})` +
-             (verified ? " — verified ✓" : ""),
+             (verified ? " — verified ✓" : " — NOT verified: drive links did not read back correctly") + diag,
         verified,
         nextSno:     String(newNextSno).padStart(5, "0"),
         lastDataRow: newLastDataRow,
