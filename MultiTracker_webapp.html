@@ -132,6 +132,15 @@ body {
 .snap .sn-tag { color: var(--accent); font-weight: 700; white-space: nowrap; }
 .snap a { color: #1a73e8; text-decoration: underline; }
 
+/* ── Grouped tab nav ── */
+.grouped-tabs { display: flex; flex-direction: column; gap: 10px; }
+.grouped-row  { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.grouped-label {
+  font-size: 10px; font-weight: 700; color: var(--light);
+  text-transform: uppercase; letter-spacing: .6px;
+  min-width: 52px; flex-shrink: 0;
+}
+
 /* ── Progress ── */
 .progress {
   max-width: 800px; margin: 16px auto 0; padding: 0 20px;
@@ -496,21 +505,13 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   </div>
 </div>
 
-<!-- ── Tracker selector ── -->
-<div class="tracker-section" id="tracker-section" style="display:none;">
-  <div class="tracker-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-    <span>Select tracker</span>
-    <button class="btn-xs" onclick="openPersonModal()" title="Add a new person to this tracker's Buckets tab">+ Add person</button>
-  </div>
-  <div class="tracker-pills" id="tracker-pills">
-    <div style="font-size:13px;color:var(--light);">Loading…</div>
-  </div>
-</div>
-
 <!-- ── Tab selector ── -->
 <div class="tab-section">
-  <div class="tab-section-label">Select sheet tab</div>
-  <div class="tab-pills" id="tab-pills">
+  <div class="tab-section-label" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Select tab</span>
+    <button class="btn-xs" onclick="openPersonModal()" title="Add a new person to this tracker's Buckets tab">+ Add person</button>
+  </div>
+  <div class="grouped-tabs" id="grouped-tabs">
     <div style="font-size:13px;color:var(--light);">Loading…</div>
   </div>
   <div class="tab-info">
@@ -778,29 +779,12 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     google.script.run
       .withSuccessHandler(data => {
-        applyTrackerData(data);
-
+        trackerNames = data.trackerNames || [];
         if (data.deployStamp) {
           document.getElementById("deploy-stamp").textContent = "deployed " + data.deployStamp;
         }
-
-        // Build tracker pills (hidden if only 1 tracker)
-        trackerNames = data.trackerNames || [];
-        const trackerSec   = document.getElementById("tracker-section");
-        const pillsWrap    = document.getElementById("tracker-pills");
-        pillsWrap.innerHTML = "";
-
-        if (trackerNames.length > 1) {
-          trackerSec.style.display = "";
-          trackerNames.forEach(name => {
-            const btn = document.createElement("button");
-            btn.className = "tracker-pill" + (name === data.activeTracker ? " active" : "");
-            btn.dataset.tracker = name;
-            btn.textContent = name;
-            btn.onclick = () => selectTrackerPill(name);
-            pillsWrap.appendChild(btn);
-          });
-        }
+        buildGroupedTabs(data.allTrackerTabs || {});
+        applyTrackerData(data);
       })
       .withFailureHandler(err => showBanner("Failed to load: " + err.message, "err"))
       .getTrackers();
@@ -810,13 +794,14 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   // Fields that can be hidden per tracker (key → wrapper element id)
   const HIDEABLE_FIELDS = { canLive: "field-canLive" };
 
-  function applyTrackerData(data) {
+  // targetTab: if provided, selects this tab instead of falling back to the
+  // previously-selected or first tab (used when switching via selectGroupedTab).
+  function applyTrackerData(data, targetTab) {
     currentTracker = data.trackerName || data.activeTracker;
     opts           = data.dropdownOptions;
     personMap      = data.personMap || {};
     tabProductMap  = data.tabProductMap || {};
 
-    // Show/hide fields based on tracker config
     const hidden = new Set(data.hideFields || []);
     Object.entries(HIDEABLE_FIELDS).forEach(([key, elId]) => {
       const el = document.getElementById(elId);
@@ -825,60 +810,93 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     populateDropdowns();
     restoreFromStorage();
-    onPersonInput(); // sync Onboarding Month required-marker with restored person
+    onPersonInput();
 
+    // Keep the hidden <select> in sync for onTabChange()
     const hiddenSel = document.getElementById("tab-name");
-    const pillsWrap = document.getElementById("tab-pills");
-    pillsWrap.innerHTML = "";
     hiddenSel.innerHTML = "";
-
     (data.sheetNames || []).forEach(name => {
       const o = document.createElement("option");
       o.value = name; o.textContent = name;
       hiddenSel.appendChild(o);
-
-      const btn = document.createElement("button");
-      btn.className = "tab-pill";
-      btn.dataset.tab = name;
-      btn.textContent = name;
-      btn.onclick = () => selectTabPill(name);
-      pillsWrap.appendChild(btn);
     });
 
     document.getElementById("load-btn").disabled = false;
     if (data.sheetNames && data.sheetNames.length) {
-      const prevTab = document.getElementById("tab-name").value;
-      const target  = data.sheetNames.includes(prevTab) ? prevTab : data.sheetNames[0];
-      selectTabPill(target);
+      const prevTab = targetTab || document.getElementById("tab-name").value;
+      const tab     = data.sheetNames.includes(prevTab) ? prevTab : data.sheetNames[0];
+      _activateTab(currentTracker, tab);
+      onTabChange();
     }
   }
 
-  // ── Tracker switching ─────────────────────────────────────
+  // ── Grouped tab nav ───────────────────────────────────────
+  // Built once on init from allTrackerTabs; never rebuilt on tracker switch.
+  function buildGroupedTabs(allTrackerTabs) {
+    const wrap = document.getElementById("grouped-tabs");
+    wrap.innerHTML = "";
+    Object.entries(allTrackerTabs).forEach(([tracker, tabs]) => {
+      const row = document.createElement("div");
+      row.className = "grouped-row";
+
+      const label = document.createElement("span");
+      label.className = "grouped-label";
+      label.textContent = tracker;
+      row.appendChild(label);
+
+      tabs.forEach(tab => {
+        const btn = document.createElement("button");
+        btn.className = "tab-pill";
+        btn.dataset.tracker = tracker;
+        btn.dataset.tab     = tab;
+        btn.textContent     = tab;
+        btn.onclick = () => selectGroupedTab(tracker, tab);
+        row.appendChild(btn);
+      });
+
+      wrap.appendChild(row);
+    });
+  }
+
+  // Marks a tab pill as active without triggering a load.
+  function _activateTab(trackerName, tabName) {
+    document.getElementById("tab-name").value = tabName;
+    document.querySelectorAll("#grouped-tabs .tab-pill").forEach(b => {
+      b.classList.toggle("active",
+        b.dataset.tracker === trackerName && b.dataset.tab === tabName);
+    });
+  }
+
+  // Called when a tab pill is clicked.
+  // Same tracker → just activate + load sheet context.
+  // Different tracker → load tracker data first, then activate the clicked tab.
   let _pendingTracker = null;
 
-  function selectTrackerPill(name) {
-    if (name === currentTracker) return;
-    document.querySelectorAll(".tracker-pill").forEach(b => {
-      b.classList.toggle("active", b.dataset.tracker === name);
-    });
+  function selectGroupedTab(trackerName, tabName) {
+    if (trackerName === currentTracker) {
+      _activateTab(trackerName, tabName);
+      onTabChange();
+      return;
+    }
+    // Optimistic UI update so the pill responds instantly
+    _activateTab(trackerName, tabName);
     resetBatch();
     document.getElementById("sheet-info").textContent = "Switching tracker…";
     document.getElementById("tab-dot").classList.remove("visible");
 
-    _pendingTracker = name;
+    _pendingTracker = trackerName;
     google.script.run
       .withSuccessHandler(data => {
-        // Discard if the user clicked another tracker while this call was in flight
-        if (_pendingTracker !== name) return;
+        if (_pendingTracker !== trackerName) return;
         _pendingTracker = null;
-        applyTrackerData(data);
+        applyTrackerData(data, tabName);
       })
       .withFailureHandler(err => {
-        if (_pendingTracker !== name) return;
+        if (_pendingTracker !== trackerName) return;
         _pendingTracker = null;
         showBanner("Failed to switch tracker: " + err.message, "err");
       })
-      .selectTracker(name);
+      .selectTracker(trackerName);
   }
 
   // ── Refresh dropdowns ────────────────────────────────────
@@ -900,14 +918,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   }
 
   // ── Tab switching ─────────────────────────────────────────
-  function selectTabPill(name) {
-    document.getElementById("tab-name").value = name;
-    document.querySelectorAll(".tab-pill").forEach(b => {
-      b.classList.toggle("active", b.dataset.tab === name);
-    });
-    onTabChange();
-  }
-
   function onTabChange() {
     sheetCtx = {};
     resetFolderOnly();

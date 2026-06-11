@@ -105,6 +105,12 @@ function getTrackers() {
   data.trackerNames  = trackerNames;
   data.activeTracker = first;
   data.deployStamp   = DEPLOY_STAMP;
+  // Tab names per tracker — used by the client to build the grouped nav without
+  // having to load every tracker's full bucket data upfront.
+  data.allTrackerTabs = {};
+  trackerNames.forEach(function(name) {
+    data.allTrackerTabs[name] = Object.keys(TRACKERS[name].tabProductMap);
+  });
   return data;
 }
 
