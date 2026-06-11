@@ -42,7 +42,7 @@ const TRACKERS = {
 
 // Update this string whenever you paste new code and create a new deployment.
 // It appears as small text in the top-left of the webapp.
-const DEPLOY_STAMP = "11 Jun 2026";
+const DEPLOY_STAMP = "11 Jun 2026, 11:20 PM";
 
 const HEADER_SEARCH_LIMIT = 20;
 
