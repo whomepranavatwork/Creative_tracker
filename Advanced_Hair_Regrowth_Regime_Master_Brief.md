@@ -12,7 +12,7 @@
 ### Kit Contents
 The Advanced Hair Regrowth Regime contains three products:
 - **Minoxifin Advance** — 5% Minoxidil + 0.1% Finasteride with CETOSOMAL® Technology (Alcohol-Free)
-- **Biotin Gummies** — Biotin + Zinc + Vitamins A, C, E (No Added Sugar, Vegan)
+- **Biotin Gummies** — Biotin + Zinc + Vitamins A, C, E (No Added Sugar)
 - **Dermaroller (0.5mm)** — 540 Titanium Alloy Micro-Needles
 
 ---
@@ -23,9 +23,9 @@ The Advanced Hair Regrowth Regime contains three products:
 
 | Ingredient | What It Does |
 |---|---|
-| **Minoxidil (5%)** | Increases blood flow to hair follicles. Delivers more nutrients to dormant follicles. Extends the anagen (hair growth) phase. Reactivates suppressed follicles. |
+| **Minoxidil (5%)** | Increases blood flow to hair follicles. |
 | **Finasteride (0.1%)** | Blocks DHT — the #1 hormonal cause of male pattern hair loss. Stops hair loss at the root cause level. |
-| **CETOSOMAL® Carrier** | Patented lipid-based delivery vehicle. Drives Minoxidil 2–3x deeper into the scalp. Delivers 44% more active Minoxidil to the hair follicle compared to alcohol-based solutions. Replaces alcohol entirely — no evaporation, no surface-level loss. |
+| **CETOSOMAL® Carrier** | Patented delivery carrier. Drives Minoxidil 2–3x deeper into the scalp. Delivers 44% more active Minoxidil to the hair follicle compared to alcohol-based solutions. |
 | **Hydrating Agents** | Embedded in the CETOSOMAL® formulation. Eliminate scalp dryness, redness, and itching associated with alcohol-based topicals. Improve tolerance and daily adherence. |
 
 #### Biotin Gummies
@@ -45,7 +45,7 @@ The Advanced Hair Regrowth Regime contains three products:
 | **Needle count** | 540 micro-needles |
 | **Material** | Titanium alloy |
 | **Needle depth** | 0.5mm |
-| **Function** | Creates micro-channels in the scalp surface. Stimulates collagen and growth factors. Maximises topical absorption when Minoxifin Advance is applied after use. |
+| **Function** | Creates micro-channels in the scalp surface. Activates dormant follicles. Stimulates blood circulation. Improves topical absorption when Minoxifin Advance is applied after use. |
 
 ---
 
@@ -53,10 +53,8 @@ The Advanced Hair Regrowth Regime contains three products:
 
 | | |
 |---|---|
-| **No alcohol** | The CETOSOMAL® carrier is entirely alcohol-free. No evaporation, no dryness, no flaking, no scalp irritation. Unlike every standard pharmacy or D2C alcohol-based minoxidil on the market. |
+| **No alcohol** | The CETOSOMAL® carrier is entirely alcohol-free. No dryness, no flaking, no scalp irritation or redness. Unlike standard alcohol-based minoxidil topicals on the market. |
 | **No added sugar** | Gummies contain no added sugar. |
-| **Vegan** | No animal-derived ingredients in the gummies. |
-| **No harsh solvents** | No propylene glycol or irritant-class solvents. Gentler formula, better daily experience. |
 
 ---
 
@@ -64,9 +62,9 @@ The Advanced Hair Regrowth Regime contains three products:
 
 | Layer | Component | Mechanism |
 |---|---|---|
-| **Topical (Follicular Delivery)** | Minoxifin Advance + CETOSOMAL® | CETOSOMAL® drives Minoxidil 2–3x deeper into the scalp, delivering 44% more active ingredient to the hair follicle. Finasteride blocks DHT at the scalp level. No alcohol means no surface evaporation loss. |
+| **Topical (Follicular Delivery)** | Minoxifin Advance + CETOSOMAL® | CETOSOMAL® drives Minoxidil 2–3x deeper into the scalp, delivering 44% more active ingredient to the hair follicle vs alcohol-based solutions. Finasteride blocks DHT. Alcohol-free with hydrating agents. |
 | **Internal (Systemic Support)** | Biotin Gummies | Biotin, Zinc, and Vitamins A, C, E nourish follicles from within. Supports keratin structure and overall scalp health. Works in parallel with the topical layer. |
-| **Mechanical (Channel Creation)** | Dermaroller | 540 titanium needles create micro-channels in the scalp before topical application. Enhances absorption. Stimulates collagen and scalp growth factors independently. |
+| **Mechanical (Channel Creation)** | Dermaroller | 540 titanium needles create micro-channels in the scalp before topical application. Activates dormant follicles. Stimulates blood circulation. Enhances absorption of the topical. |
 
 **The critical scientific truth:** The three mechanisms are synchronized. The Dermaroller opens channels — Minoxifin Advance with CETOSOMAL® penetrates deeper via those channels — Gummies support follicular health from within. No single-lever approach can match this. It is a protocol, not a product.
 
@@ -276,7 +274,7 @@ The Treatment Optimizer wants to believe that their 6–15 months of consistent 
 - "You have been consistent for a year. The formula hasn't been."
 
 #### The Mandate
-CETOSOMAL® is not a new drug. It is a better path for the same drug. Alcohol-based solutions evaporate before they penetrate — a documented delivery ceiling that limits how much active Minoxidil ever reaches the follicle. CETOSOMAL® is a patented lipid-based carrier that does not evaporate. It drives Minoxidil 2–3x deeper and delivers 44% more active ingredient where it is needed. Same molecule. Better journey. Existing treatment history compounds — it does not restart.
+CETOSOMAL® is not a new drug. It is a better path for the same drug. Standard alcohol-based solutions have a delivery ceiling — a significant portion of the active Minoxidil never reaches the follicle. CETOSOMAL® is a patented carrier that penetrates 2–3x deeper and delivers 44% more active Minoxidil to the follicle vs alcohol-based solutions. Same molecule. Better journey. Existing treatment history compounds — it does not restart.
 
 #### Timeline Milestone Map
 - Month 1–2: Hairfall starts to reduce. Shedding in this window is expected and normal.
@@ -296,25 +294,25 @@ CETOSOMAL® is not a new drug. It is a better path for the same drug. Alcohol-ba
 The Treatment Optimizer wants a rational, evidence-based explanation for why results have been slower than expected — without being told to increase the dose or switch to a different drug. The job is: give them the answer they were already looking for, framed as a solvable problem.
 
 #### Hook Options
-- "Standard Minoxidil topicals are alcohol-based. The alcohol evaporates before most of it reaches the follicle."
+- "Standard Minoxidil topicals are alcohol-based. Alcohol-based carriers deliver less active ingredient to the follicle — that's the delivery gap."
 - "You're applying 1ml every day. How much of it actually reaches the follicle?"
 - "44% more Minoxidil delivered. No new ingredients. Better science."
 - "The delivery gap is why your results plateaued — not your consistency."
 
 #### The Mandate
-Standard alcohol-based topicals have a hard delivery ceiling. The alcohol carrier evaporates rapidly after application — and as it does, it takes a significant portion of the Minoxidil dose with it, leaving surface-level absorption as the best-case outcome. CETOSOMAL® is a lipid-based carrier that does not evaporate. It penetrates. 2–3x deeper. 44% more active Minoxidil arrives at the follicle per application. The dose has not changed. The delivery has.
+Standard alcohol-based topicals have a hard delivery ceiling — less active Minoxidil reaches the follicle. CETOSOMAL® is a patented carrier that penetrates 2–3x deeper. 44% more active Minoxidil arrives at the follicle per application vs alcohol-based solutions. The dose has not changed. The delivery has.
 
 #### Comparison Anchor
 
 | | Standard Alcohol-Based Minoxidil | Minoxifin Advance (CETOSOMAL®) |
 |---|---|---|
-| **Carrier** | Alcohol — evaporates on contact with scalp | CETOSOMAL® lipid carrier — penetrates, does not evaporate |
+| **Carrier** | Alcohol-based — delivery ceiling limits follicular absorption | CETOSOMAL® patented carrier — deeper penetration, more active ingredient delivered |
 | **Penetration depth** | Surface-level | 2–3x deeper |
 | **Minoxidil at follicle** | Baseline — delivery ceiling applies | 44% more active ingredient delivered |
 | **Scalp impact** | Dryness, irritation, redness — adherence drops | Alcohol-free, hydrating — supports consistent daily use |
 
 #### Retention Trigger
-"Every month on alcohol-based Minoxidil, part of your dose was being lost at the surface. CETOSOMAL® closes that gap — from the first application."
+"With alcohol-based Minoxidil, part of every dose never reaches the follicle. CETOSOMAL® closes that gap — from the first application."
 
 ---
 
@@ -332,7 +330,7 @@ The Treatment Optimizer wants a complete, systematic protocol — not a single-l
 - "One protocol. Three actions. Nothing left unaddressed."
 
 #### The Mandate
-Hair loss requires simultaneous action on multiple vectors. Minoxifin Advance with CETOSOMAL® handles the follicular delivery layer — 44% more Minoxidil, 2–3x deeper, no alcohol. Biotin Gummies handle the systemic layer — strengthening hair structure and scalp health from the inside. The Dermaroller handles the mechanical layer — creating micro-channels that make topical absorption even more efficient, and independently stimulating growth factors. Three mechanisms. Synchronized. Compounding over time.
+Hair loss requires simultaneous action on multiple vectors. Minoxifin Advance with CETOSOMAL® handles the follicular delivery layer — 44% more Minoxidil, 2–3x deeper, no alcohol. Biotin Gummies handle the systemic layer — strengthening hair structure and scalp health from the inside. The Dermaroller handles the mechanical layer — creating micro-channels that improve topical absorption, activating dormant follicles, and stimulating blood circulation. Three mechanisms. Synchronized. Compounding over time.
 
 #### Protocol Table
 
@@ -340,7 +338,7 @@ Hair loss requires simultaneous action on multiple vectors. Minoxifin Advance wi
 |---|---|---|
 | **Topical — Follicular Delivery** | Minoxifin Advance + CETOSOMAL® | 44% more Minoxidil, 2–3x deeper penetration. Finasteride blocks DHT at the scalp level. Alcohol-free. |
 | **Internal — Systemic Support** | Biotin Gummies | Biotin, Zinc, and Vitamins A, C, E support keratin structure and scalp health from within. |
-| **Mechanical — Channel Creation** | Dermaroller (540 needles, 0.5mm) | Opens micro-channels before topical application. Stimulates collagen. Maximises absorption in every session. |
+| **Mechanical — Channel Creation** | Dermaroller (540 needles, 0.5mm) | Opens micro-channels before topical application. Activates dormant follicles. Stimulates blood circulation. Maximises absorption in every session. |
 
 #### Retention Trigger
 "Most men address one vector and wonder why results plateau. The Advanced protocol addresses all three — and each mechanism makes the others more effective over time."
