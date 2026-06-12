@@ -171,7 +171,7 @@ The S3 Hair Regrowth Kit contains two products:
 | | |
 |---|---|
 | **Barrier 1 — Most critical** | Shedding panic in Month 1–1.5. He was not warned. Hair appears to be falling faster. He concludes the product is making things worse and stops — at exactly the moment the treatment is working. This is the #1 self-inflicted churn event for Stage 3 buyers. |
-| **Barrier 2** | No visible bald-patch result by Month 3. Bald-patch regrowth requires Month 4–5. Without a clear milestone map, he concludes the treatment has failed at the exact point it is about to deliver. 60% cite "results too slow" as their primary frustration. 58% rate the product 1–2/5 at this point. |
+| **Barrier 2** | No visible bald-patch result by Month 3. Visible bald-patch regrowth starts around Month 5–6. Without a clear milestone map, he concludes the treatment has failed at the exact point it is about to deliver. 60% cite "results too slow" as their primary frustration. 58% rate the product 1–2/5 at this point. |
 | **Barrier 3** | Doctor quality inconsistency. "Doctor timeline baar baar badha deta hai." Vague or inconsistent consultations collapse trust. 25% of Stage 3 buyers flag this. |
 | **Barrier 4** | Consistency failure. Twice-daily application every day is a new habit. Without a ritual anchor, gaps appear. In hair regrowth, a break in the habit is a break in the results. |
 | **Barrier 5** | Cost anxiety over 6-month protocol. 25% flag cost. Gets sharper when no visible progress exists to justify continued spend. |
@@ -239,7 +239,7 @@ He can see the bald patch. It has been there for over a year. He has tried oils 
 |---|---|
 | **JTBD** | He wants to see baby hair on his bald patch. Not "reduced hairfall." Not "thicker elsewhere." The specific visual of new growth on the crown. That is the purchase. |
 | **Hook Options** | • "3 saal se baal gir rahe hain. Soch liya tha ab wapas nahi aayenge. Galat tha." • "Crown pe patch tha — hat nahi raha tha. Mujhe bhi nahi pata tha follicles abhi bhi wahan hain, sirf dormant hain." |
-| **Mandate** | Framing: Stage 3 is reversible. Follicles are dormant, not dead. Show the crown journey — month 3-4 baby hair, month 5-6 visible regrowth. Before/after on real bald patches, not just hairline. Product: Finasteride blocks DHT (root hormonal cause). Minoxidil reactivates dormant follicles. Dual-action. Doctor consultation sets the milestone map from Day 1. Dosage: 4 sprays twice daily (morning + night) on dry scalp + 1 gummy daily. 5–6 months. |
+| **Mandate** | Framing: Stage 3 is reversible. Follicles are dormant, not dead. Show the crown journey — month 3-4 hairfall reduces, baby hair may start appearing; month 5-6 visible regrowth. Before/after on real bald patches, not just hairline. Product: Finasteride blocks DHT (root hormonal cause). Minoxidil reactivates dormant follicles. Dual-action. Doctor consultation sets the milestone map from Day 1. Dosage: 4 sprays twice daily (morning + night) on dry scalp + 1 gummy daily. 5–6 months. |
 | **Add-on** | 93% success on the complete protocol. 10 lakh+ men. Doctor consultation included — not algorithm-assigned, but diagnosed and monitored. |
 
 ---
@@ -255,7 +255,7 @@ He has quietly accepted that his bald patches are permanent. He tells himself it
 | **JTBD** | He needs to understand, in concrete biological terms, that the window has not closed. Stage 3 bald patches can reverse because the follicles are not gone — they are suppressed by DHT and starved of blood flow. Both are fixable. |
 | **Hook Options** | • "Sab ne bola tha — Stage 3 ke baad kuch nahi hota. Galat hai. Follicles dead nahi hote. Sirf dormant hote hain." • "Main transplant ke baare mein soch raha tha. Phir samjha — follicles abhi bhi wahan hain. Unhe sirf reactivate karna tha." |
 | **Mandate** | Framing: Address the "too late" belief head-on, early. Keep the biology simple — Minoxidil does not create new follicles, it reactivates the ones already there. At Stage 3 those follicles are dormant, not dead. Finasteride removes the DHT that has been suppressing them. Product: Finasteride (blocks DHT) + Minoxidil (reactivates dormant follicles). FDA-approved. Dermatologist-recommended. Dosage: 4 sprays twice daily + 1 gummy daily. Consistent use for 5–6 months. |
-| **Add-on** | Doctor consultation builds a personalised milestone map: Month 1-2 hairfall reduces → Month 3-4 baby hair visible → Month 5-6 visible regrowth. 93% of users on the complete protocol see results. |
+| **Add-on** | Doctor consultation builds a personalised milestone map: Month 1-2 hairfall reduces → Month 3-4 hairfall reduces further, baby hair may appear → Month 5-6 visible regrowth. 93% of users on the complete protocol see results. |
 
 ---
 
