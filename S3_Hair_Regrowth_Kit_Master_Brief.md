@@ -79,7 +79,7 @@ The S3 Hair Regrowth Kit contains two products:
 | Period | What Happens |
 |---|---|
 | **Month 1–2** | Hairfall reduces. Some users experience a temporary shedding phase in weeks 2–6. This is normal — old, weak hair makes way for stronger new hair. It is a sign the treatment is actively working. Do not stop. |
-| **Month 3–4** | Regrowth begins. Baby hair visible on previously thinning areas and bald patches. Crown and hairline start to fill in. |
+| **Month 3–4** | Hairfall may reduce further. Baby hair may start appearing on thinning areas and bald patches. |
 | **Month 5–6** | Hair gets thicker and denser. Visible improvement across crown and thinning zones. |
 
 **Important:** Results require consistent daily use for 5–6 months. If treatment stops, hair loss may resume. Consistency is not a bonus — it is the entire protocol.
@@ -107,21 +107,8 @@ The S3 Hair Regrowth Kit contains two products:
 | **Active molecules** | Finasteride + Minoxidil. FDA-approved. Clinically proven for bald-patch reversal. | No clinically proven actives. No DHT blocking. No follicle reactivation. |
 | **Mechanism** | Dual-action: blocks root hormonal cause (DHT) and simultaneously reactivates dormant follicles. | Surface-level. Cannot penetrate to follicle depth. Cannot reverse Stage 3 crown loss. |
 | **Doctor involvement** | Doctor consultation included. Protocol personalised, prescribed, and monitored. | Self-prescribed. No diagnosis. No monitoring. No accountability. |
-| **Timeline** | Clear milestones: Month 1-2 hairfall reduces → Month 3-4 regrowth → Month 5-6 thicker hair. | No predictable timeline. Months or years of trial and error with no result. |
+| **Timeline** | Clear milestones: Month 1-2 hairfall reduces → Month 3-4 hairfall reduces further, baby hair may appear → Month 5-6 visible regrowth, thicker hair. | No predictable timeline. Months or years of trial and error with no result. |
 | **Bald patch reversal** | Designed specifically for crown and bald-patch reversal. Appropriate for Stage 3. | Cannot restore what is already visibly gone. Not designed for this. |
-
----
-
-### 8. S3 Kit vs Traya
-
-| | Man Matters S3 Kit | Traya |
-|---|---|---|
-| **Core active** | Minoxidil + Finasteride. FDA-approved. Dual-action DHT block + follicle reactivation. | Redensyl + Ayurvedic herbs + standard minoxidil. No Finasteride. No direct DHT blocker. |
-| **DHT blocking** | Finasteride directly blocks DHT — the primary hormonal cause of Stage 3 male hair loss. | Ayurvedic approach. No pharmacological DHT block. |
-| **Delivery** | Alcohol-free. Water-based. Non-sticky. Comfortable for daily twice-application. | Standard topical. No advanced delivery. |
-| **Protocol complexity** | 2 products. Simple routine. Twice-daily spray + once-daily gummy. | 5+ products per day: pills, nasal drops, oils, diet changes. High compliance friction. |
-| **Doctor vs Coach** | Qualified dermatologist. Full diagnosis, prescription, follow-up, personalised milestone map. | Hair coach — not a doctor. Algorithm-driven. |
-| **Brand focus** | 100% men. Built for Indian male physiology. Every clinical test on Indian men. | Unisex brand. Serves men and women. Diluted identity. |
 
 ---
 
@@ -212,10 +199,10 @@ The S3 Hair Regrowth Kit contains two products:
 | **Frame** | You have tried hard. The products failed you — not because you were inconsistent, but because they were never capable of solving Stage 3 hair loss. Your follicles are not gone. They are waiting. |
 | **Primary hook** | "Itna try kar chuka hai — oils, shampoos, ek brand bhi. Kuch nahi hua. Kyunki woh products is problem ko solve hi nahi kar sakte the." |
 | **Tone** | Part peer-to-peer ("I went through this exact journey"), part evidence-led ("here is what happens month by month and why"). He is a researcher. He respects both lived experience and clinical proof. |
-| **Claim sequence** | (1) Stage 3 is reversible — follicles are dormant, not dead. (2) Dual-action: Finasteride blocks DHT, Minoxidil reactivates dormant follicles. (3) Doctor-led protocol — diagnosed, prescribed, monitored. (4) Clear timeline — Month 1-2 hairfall reduces → Month 3-4 regrowth → Month 5-6 thicker. |
+| **Claim sequence** | (1) Stage 3 is reversible — follicles are dormant, not dead. (2) Dual-action: Finasteride blocks DHT, Minoxidil reactivates dormant follicles. (3) Doctor-led protocol — diagnosed, prescribed, monitored. (4) Clear timeline — Month 1-2 hairfall reduces → Month 3-4 hairfall reduces further, baby hair may appear → Month 5-6 visible regrowth. |
 | **What to say** | Bald-patch reversal. FDA-approved molecules. Dual-action protocol (Finasteride + Minoxidil). Free doctor consultation with milestone map. 93% success. Shedding in Month 1 is normal — it is a sign the treatment is working. 10 lakh+ men. |
 | **What NOT to say** | Body shaming. Shaming bald men. Bad taste framing of any kind. Competitor brand names. "Guaranteed results." "Works in 30 days." "Cure." Fake before/after. Unrealistic promises. Transplant fear-mongering. Wet hair application framing. |
-| **Comparison angle** | vs random products (oils, shampoos, trial and error cannot fix Stage 3 — they have no active molecule for DHT blocking or follicle reactivation). vs Traya approach (Ayurvedic vs clinical, hair coach vs real doctor, complex routine vs simple 2-product protocol). Compare approach, never name the brand. |
+| **Comparison angle** | vs random products (oils, shampoos, trial and error cannot fix Stage 3 — they have no active molecule for DHT blocking or follicle reactivation). Compare approach, never name brands. |
 
 ---
 
@@ -284,21 +271,6 @@ He has done the rounds. Coconut oil. Onion oil. Castor oil. Anti-hairfall shampo
 | **Hook Options** | • "Onion oil, castor oil, anti-hairfall shampoo — sab try kiya. Kyunki koi nahi bataya tha ki yeh cheezein Stage 3 mein kaam hi nahi kar sakti. DHT toh band nahi hota oil se." • "Shampoo baal dhota hai. DHT nahi rok sakta. Minoxidil follicle reactivate karta hai. Yeh wahi karta hai jo baaki sab nahi karte the." |
 | **Mandate** | Framing: Product education without condescension. He tried hard — the products failed him, not the other way around. DHT is the hormonal root cause of Stage 3 male hair loss. Oils and shampoos have no mechanism for blocking DHT. They have no FDA-approved active molecule for follicle reactivation. Minoxifin does both simultaneously. Product: Finasteride blocks DHT at the root. Minoxidil increases blood flow and extends the growth phase. Two molecules. One product. Doctor-prescribed. Dosage: 4 sprays twice daily + 1 gummy daily. 5–6 months of consistent use. |
 | **Add-on** | Alcohol-free. Non-sticky. Water-based. Daily twice-application comfort that actually makes the habit sustainable. Doctor consultation included. |
-
----
-
-### NARRATIVE 4: VS TRAYA APPROACH
-
-**Arjun — Working Professional · 22 to 34 · Tier 1 and Tier 2**
-
-He found Traya while researching. It looks clinical. They have a hair coach. They have a whole system. He either tried it and found it too complex to maintain, or he is currently running a side-by-side comparison on Gemini or YouTube. He wants the most clinically rigorous option — not the most Ayurvedic one. He is sceptical that herbs are going to fix a Stage 3 crown.
-
-| | |
-|---|---|
-| **JTBD** | He wants to know he is choosing the more clinically grounded option. He is comparing at the ingredient level. He needs to understand why FDA-approved pharmacological molecules are a stronger foundation than Ayurvedic actives for Stage 3 — and why a dermatologist is more credible than a hair coach. |
-| **Hook Options** | • "Hair coach nahi chahiye — ek doctor chahiye. Jo diagnose kare, prescribe kare, follow-up kare. Yahi fark hai." • "Finasteride DHT directly block karta hai. Herbal approach yeh nahi karta. Stage 3 ke liye clinical solution chahiye — traditional nahi." |
-| **Mandate** | Framing: Clinical versus Ayurvedic. Both claim "holistic." Man Matters means: doctor diagnoses root causes and prescribes clinically proven pharmaceutical molecules. The alternative means: Ayurveda and supplements guided by a coach. At Stage 3, the severity warrants pharmacological precision, not a broad-spectrum holistic approach. Never name competitor brands. Compare by approach: "clinical vs Ayurvedic," "dermatologist vs hair coach," "2-product protocol vs 5+ products per day." Product: Minoxidil + Finasteride (FDA-approved). Alcohol-free. Doctor-led — diagnosis, prescription, milestone map, follow-up. Simple: 2 products, twice daily + once daily. No nasal drops, no 5+ product regimen, no diet overhaul. Dosage: 4 sprays twice daily + 1 gummy daily. 5–6 months. |
-| **Add-on** | 93% success. 10 lakh+ men. Doctor consultation personalised and monitored — not algorithm-driven. 100% men's brand — every product, every clinical test, every protocol built for Indian men. |
 
 ---
 
