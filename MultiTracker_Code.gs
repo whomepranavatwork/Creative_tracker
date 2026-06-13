@@ -33,12 +33,16 @@ const TRACKERS = {
       "Most Tested", "Sleep & Stress", "Muscle Recovery", "Benefits", "Features"
     ],
     tabProductMap: {
-      "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
+      "Shilajit":  ["Shilajit Gummies", "Shilajit Gummies Advanced"],
       "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
-      "Magnesium": ["Magnesium Gummies", "Creatine Powder"]
+      "Magnesium": ["Magnesium Gummies"]
     }
   }
 };
+
+// Update this string whenever you paste new code and create a new deployment.
+// It appears as small text in the top-left of the webapp.
+const DEPLOY_STAMP = "11 Jun 2026, 11:20 PM";
 
 const HEADER_SEARCH_LIMIT = 20;
 
@@ -100,6 +104,13 @@ function getTrackers() {
   const data  = selectTracker(first);
   data.trackerNames  = trackerNames;
   data.activeTracker = first;
+  data.deployStamp   = DEPLOY_STAMP;
+  // Tab names per tracker — used by the client to build the grouped nav without
+  // having to load every tracker's full bucket data upfront.
+  data.allTrackerTabs = {};
+  trackerNames.forEach(function(name) {
+    data.allTrackerTabs[name] = Object.keys(TRACKERS[name].tabProductMap);
+  });
   return data;
 }
 
@@ -229,15 +240,17 @@ function getSheetContext(tabName, trackerName) {
 
   let sc = null; // static: headerRow, colIndex, adNameFormula, formula rows
   try { sc = JSON.parse(props.getProperty(scKey)); } catch (e) { sc = null; }
-  if (!sc) {
+  // Skip formula-row freshness checks here — those are only critical before a
+  // write. Saves 2 API calls on every tab switch (addEntries still checks).
+  if (!sc || !_validateSchema(sheet, sc, false)) {
     sc = _buildSheetContext(sheet);
     try { props.setProperty(scKey, JSON.stringify(sc)); } catch (e) {}
   }
 
-  const ls = _computeLiveState(sheet, sc.colIndex, sc.headerRow);
+  // Single combined read: live-state detection + boundary snapshot in one call.
+  const ls = _computeLiveStateAndBoundary(sheet, sc.colIndex, sc.headerRow);
 
   const sheetUrl = ss.getUrl() + "#gid=" + sheet.getSheetId();
-  const boundary = _boundarySnapshot(sheet, sc.colIndex, sc.headerRow, ls.lastDataRow);
 
   return {
     sheetName:       tabName,
@@ -246,7 +259,7 @@ function getSheetContext(tabName, trackerName) {
     totalRows:       ls.totalRows,
     lastDataRow:     ls.lastDataRow,
     sheetUrl,
-    boundary,
+    boundary:        ls.boundary,
     adNameFormula:      sc.adNameFormula,
     adNameFormulaRow:   sc.adNameFormulaRow,
     ytAdNameFormulaRow: sc.ytAdNameFormulaRow,
@@ -256,8 +269,8 @@ function getSheetContext(tabName, trackerName) {
 }
 
 // Builds the full tab schema from the live sheet: header position, column map,
-// and ad-name formula locations. Used by getSheetContext and by addEntries
-// whenever the cached schema is missing or fails validation.
+// ad-name formula locations, and protected column list. Used by getSheetContext
+// and by addEntries whenever the cached schema is missing or fails validation.
 function _buildSheetContext(sheet) {
   const detected = detectHeaders(sheet);
   const sc = {
@@ -265,7 +278,8 @@ function _buildSheetContext(sheet) {
     colIndex:           detected.colIndex,
     adNameFormula:      "",
     adNameFormulaRow:   null,
-    ytAdNameFormulaRow: null
+    ytAdNameFormulaRow: null,
+    protectedCols:      null
   };
   const lastRow = sheet.getLastRow();
   if (lastRow > detected.headerRow) {
@@ -296,14 +310,18 @@ function _buildSheetContext(sheet) {
       }
     }
   }
+  // Cache protected columns so each submit avoids calling getProtections() live.
+  // Rebuilt whenever the schema is rebuilt (headers move, formula rows change).
+  sc.protectedCols = [...getProtectedCols(sheet, sheet.getLastColumn())];
   return sc;
 }
 
-// Returns true if every cached column index still carries the expected header
-// text on the live sheet AND the cache covers all headers that are present on
-// the live sheet AND the cached formula rows still contain formulas.
-// Any mismatch forces a full rebuild before the next write.
-function _validateSchema(sheet, sc) {
+// Returns true if the cached schema is still valid against the live sheet.
+// checkFormulas (default true): when false, skips the formula-row freshness
+// checks (saves 2 API calls). Safe to skip for display calls (getSheetContext)
+// since formula drift only matters before a write (addEntries always uses true).
+function _validateSchema(sheet, sc, checkFormulas) {
+  if (checkFormulas === undefined) checkFormulas = true;
   try {
     if (!sc || !sc.colIndex || sc.headerRow == null) return false;
     const readCols = Math.min(sheet.getLastColumn(), 50);
@@ -330,20 +348,22 @@ function _validateSchema(sheet, sc) {
       if (!cachedKeys.has(k)) return false;
     }
 
-    // 3. If adNameFormulaRow is cached, the cell must still contain a formula.
-    //    Rows deleted after caching shift row numbers — a stale formula row
-    //    would silently skip Ad Name on the next write.
-    if (sc.adNameFormulaRow != null && sc.colIndex.adName != null) {
-      const lastRow = sheet.getLastRow();
-      if (sc.adNameFormulaRow > lastRow) return false; // row was deleted
-      const f = sheet.getRange(sc.adNameFormulaRow, sc.colIndex.adName + 1).getFormula();
-      if (!f) return false; // formula was removed or row was cleared
-    }
-    if (sc.ytAdNameFormulaRow != null && sc.colIndex.ytAdName != null) {
-      const lastRow = sheet.getLastRow();
-      if (sc.ytAdNameFormulaRow > lastRow) return false;
-      const f = sheet.getRange(sc.ytAdNameFormulaRow, sc.colIndex.ytAdName + 1).getFormula();
-      if (!f) return false;
+    // 3. Formula row freshness — skipped for display calls (checkFormulas=false).
+    //    Rows deleted after caching shift row numbers; a stale formula row would
+    //    silently skip Ad Name on the next write, so addEntries always checks.
+    if (checkFormulas) {
+      if (sc.adNameFormulaRow != null && sc.colIndex.adName != null) {
+        const lastRow = sheet.getLastRow();
+        if (sc.adNameFormulaRow > lastRow) return false;
+        const f = sheet.getRange(sc.adNameFormulaRow, sc.colIndex.adName + 1).getFormula();
+        if (!f) return false;
+      }
+      if (sc.ytAdNameFormulaRow != null && sc.colIndex.ytAdName != null) {
+        const lastRow = sheet.getLastRow();
+        if (sc.ytAdNameFormulaRow > lastRow) return false;
+        const f = sheet.getRange(sc.ytAdNameFormulaRow, sc.colIndex.ytAdName + 1).getFormula();
+        if (!f) return false;
+      }
     }
 
     return true;
@@ -385,6 +405,99 @@ function _boundarySnapshot(sheet, colIndex, headerRow, lastDataRow) {
   } catch (e) {
     return null; // snapshot is best-effort, never blocks the flow
   }
+}
+
+// Combined live-state + boundary read for getSheetContext.
+// Reads all columns needed by both in a single sheet call instead of two,
+// then extracts the boundary rows from the already-read data array.
+// Returns { nextSno, lastDataRow, totalRows, boundary }.
+function _computeLiveStateAndBoundary(sheet, colIndex, headerRow) {
+  const tz      = Session.getScriptTimeZone();
+  const lastRow  = sheet.getLastRow();
+  const scanEnd  = Math.min(lastRow, headerRow + DATA_SCAN_LIMIT);
+  const scanRows = scanEnd - headerRow;
+  let nextSno     = 1;
+  let lastDataRow = headerRow;
+
+  if (scanRows <= 0) return { nextSno, lastDataRow, totalRows: 0, boundary: null };
+
+  const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null);
+  const adNameCol = colIndex.adName != null ? colIndex.adName : null;
+  const snoCol    = colIndex.sno    != null ? colIndex.sno    : null;
+  // Extra columns needed by the boundary display — read once alongside detection cols.
+  const displayCols = [colIndex.date, colIndex.product, colIndex.live,
+                       colIndex.canLive, colIndex.raisedBy].filter(c => c != null);
+  const allCols = [...new Set([...driveCols,
+                   ...(adNameCol != null ? [adNameCol] : []),
+                   ...(snoCol    != null ? [snoCol]    : []),
+                   ...displayCols])];
+
+  if (allCols.length === 0) return { nextSno, lastDataRow, totalRows: 0, boundary: null };
+
+  const minC = Math.min(...allCols);
+  const maxC = Math.max(...allCols);
+  const data = sheet.getRange(headerRow + 1, minC + 1, scanRows, maxC - minC + 1).getValues();
+
+  const needDrive  = driveCols.length > 0;
+  const needAdName = adNameCol != null;
+
+  for (let i = data.length - 1; i >= 0; i--) {
+    const hasDrive  = needDrive && driveCols.some(c => {
+      const v = data[i][c - minC];
+      return typeof v === "string" && v.startsWith("https://");
+    });
+    const hasAdName = needAdName &&
+      (String(data[i][adNameCol - minC] || "")).split("_").length >= 6;
+    const isReal = needDrive && needAdName ? hasDrive || hasAdName
+                 : needDrive               ? hasDrive
+                 :                          hasAdName;
+    if (isReal) { lastDataRow = headerRow + 1 + i; break; }
+  }
+
+  if (snoCol != null && lastDataRow > headerRow) {
+    nextSno = lastDataRow - headerRow + 1;
+    for (let i = lastDataRow - headerRow - 1; i >= 0; i--) {
+      const n = parseInt(data[i][snoCol - minC], 10);
+      if (!isNaN(n)) { nextSno = n + 1; break; }
+    }
+  }
+
+  // Extract boundary rows from the already-read data — no second API call.
+  let boundary = null;
+  try {
+    const startRow    = Math.max(headerRow + 1, lastDataRow - 2);
+    const dataEndRow  = headerRow + data.length; // last row covered by data
+    const endRow      = Math.min(lastDataRow + 2, dataEndRow);
+    const startOffset = startRow - (headerRow + 1);
+    const endOffset   = endRow   - (headerRow + 1);
+    const fmt  = function(v) {
+      return (v instanceof Date) ? Utilities.formatDate(v, tz, "dd/MM/yyyy") : String(v);
+    };
+    const pick = function(r, c) {
+      if (c == null || c < minC || (c - minC) >= r.length) return "";
+      return String(r[c - minC]);
+    };
+    boundary = [];
+    for (let i = startOffset; i <= endOffset; i++) {
+      if (i < 0 || i >= data.length) continue;
+      const r = data[i];
+      boundary.push({
+        row:      headerRow + 1 + i,
+        sno:      pick(r, colIndex.sno),
+        date:     colIndex.date != null ? fmt(r[colIndex.date - minC] || "") : "",
+        product:  pick(r, colIndex.product),
+        adName:   pick(r, colIndex.adName).slice(0, 80),
+        d45:      pick(r, colIndex.drive45),
+        d916:     pick(r, colIndex.drive916),
+        live:     pick(r, colIndex.live),
+        canLive:  pick(r, colIndex.canLive),
+        raisedBy: pick(r, colIndex.raisedBy)
+      });
+    }
+    if (!boundary.length) boundary = null;
+  } catch (e) { boundary = null; }
+
+  return { nextSno, lastDataRow, totalRows: lastDataRow - headerRow, boundary };
 }
 
 // Scans the sheet to find lastDataRow, nextSno, totalRows.
@@ -555,35 +668,38 @@ function addEntries(payload) {
         return { ok: false, msg: "Sheet context is invalid — refresh the page and try again." };
       }
 
-      // Overwrite guard: check BOTH drive columns — a 4:5-only row has an empty drive916 cell
-      // which the old single-column check missed, allowing silent overwrites
-      const driveCheckCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null);
-      for (const checkCol of driveCheckCols) {
-        const existing = sheet.getRange(firstNewRow, checkCol + 1, cuts.length, 1).getValues();
-        const conflict  = existing.findIndex(r => typeof r[0] === "string" && r[0].startsWith("https://"));
-        if (conflict !== -1) {
-          return {
-            ok: false,
-            msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
-          };
-        }
-      }
-
-      // Second guard: a teammate may have started a row BY HAND (product/person typed,
-      // drive link not pasted yet). Such a row has no URL and no full ad name, so the
-      // last-row scan treats it as blank — but writing over it would destroy their work.
-      // Product / Person / Raised By are never formula-pre-filled, so any value here
-      // means a human touched the row.
-      const manualCheckCols = [colIndex.product, colIndex.person, colIndex.raisedBy]
+      // Batch all 5 guard reads (drive45, drive916, product, person, raisedBy) into a
+      // single range fetch — previously 5 separate getValues() calls (~750 ms total).
+      const guardCols = [colIndex.drive45, colIndex.drive916,
+                         colIndex.product, colIndex.person, colIndex.raisedBy]
         .filter(c => c != null);
-      for (const checkCol of manualCheckCols) {
-        const existing = sheet.getRange(firstNewRow, checkCol + 1, cuts.length, 1).getValues();
-        const conflict  = existing.findIndex(r => String(r[0]).trim() !== "");
-        if (conflict !== -1) {
-          return {
-            ok: false,
-            msg: `Row ${firstNewRow + conflict} has manually entered data — aborting to avoid overwriting a teammate's in-progress row. Check the sheet, then refresh and try again.`
-          };
+      if (guardCols.length > 0) {
+        const minGC  = Math.min(...guardCols);
+        const maxGC  = Math.max(...guardCols);
+        const guard  = sheet.getRange(firstNewRow, minGC + 1, cuts.length, maxGC - minGC + 1).getValues();
+
+        // Overwrite guard: reject if a drive URL already exists in the target rows.
+        for (const checkCol of [colIndex.drive45, colIndex.drive916].filter(c => c != null)) {
+          const conflict = guard.findIndex(r => typeof r[checkCol - minGC] === "string" && r[checkCol - minGC].startsWith("https://"));
+          if (conflict !== -1) {
+            return {
+              ok: false,
+              msg: `Row ${firstNewRow + conflict} already has data — aborting to avoid overwrite. Refresh the page and try again.`
+            };
+          }
+        }
+
+        // Manual-entry guard: a teammate may have started a row BY HAND before a drive link
+        // was pasted. Product / Person / Raised By are never formula-pre-filled, so any
+        // value here means a human touched the row — don't overwrite it.
+        for (const checkCol of [colIndex.product, colIndex.person, colIndex.raisedBy].filter(c => c != null)) {
+          const conflict = guard.findIndex(r => String(r[checkCol - minGC]).trim() !== "");
+          if (conflict !== -1) {
+            return {
+              ok: false,
+              msg: `Row ${firstNewRow + conflict} has manually entered data — aborting to avoid overwriting a teammate's in-progress row. Check the sheet, then refresh and try again.`
+            };
+          }
         }
       }
 
@@ -600,7 +716,9 @@ function addEntries(payload) {
 
       const configSkip = (TRACKERS[trackerName].skipColumns || [])
         .map(k => colIndex[k]).filter(c => c != null);
-      const sheetSkip  = getProtectedCols(sheet, lastCol);
+      // Use the protected-column list cached in the schema (rebuilt with schema on
+      // header/formula changes) rather than calling getProtections() on every submit.
+      const sheetSkip  = sc.protectedCols ? new Set(sc.protectedCols) : getProtectedCols(sheet, lastCol);
       const skipCols   = new Set([...configSkip, ...sheetSkip]);
 
       // Track only explicitly-written columns — untracked columns are never touched
@@ -683,24 +801,48 @@ function addEntries(payload) {
       const newNextSno     = nextSno + rows.length;
       const newTotalRows   = ls.totalRows + rows.length;
 
-      // Read-back verification: re-read the rows just written and confirm each
-      // drive URL sits in the correct ratio column. Turns "trust me" into a
-      // machine-checked assertion against the actual sheet.
-      let verified = false;
+      // Flush pending writes before verifying — ensures setValues/setRichTextValues
+      // are committed to the sheet before getValues reads them back.
+      SpreadsheetApp.flush();
+
+      // Read-back verification: check SNO (anchor — confirms the row was written at all)
+      // and drive columns (confirms URLs landed in the correct ratio column).
+      let verified  = false;
+      let missingRows = 0; // rows where SNO was not written (row silently not persisted)
 
       try {
-        const width = sheet.getLastColumn();
-        const back  = sheet.getRange(firstNewRow, 1, rows.length, width).getValues();
-        verified = cuts.every((cut, i) => {
-          const r = back[i];
-          const want45  = (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "";
-          const want916 = (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "";
-          const ok45  = colIndex.drive45  == null || skipCols.has(colIndex.drive45)  ||
-                        String(r[colIndex.drive45])  === want45;
-          const ok916 = colIndex.drive916 == null || skipCols.has(colIndex.drive916) ||
-                        String(r[colIndex.drive916]) === want916;
-          return ok45 && ok916;
-        });
+        const anchorCol = (colIndex.sno != null && !skipCols.has(colIndex.sno)) ? colIndex.sno : null;
+        const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null && !skipCols.has(c));
+        const verifyCols = [...(anchorCol != null ? [anchorCol] : []), ...driveCols];
+
+        if (verifyCols.length > 0) {
+          const minVC = Math.min(...verifyCols);
+          const maxVC = Math.max(...verifyCols);
+          const back  = sheet.getRange(firstNewRow, minVC + 1, rows.length, maxVC - minVC + 1).getValues();
+
+          let driveOk = true;
+          for (let i = 0; i < cuts.length; i++) {
+            const r = back[i];
+
+            // Anchor check: if SNO is wrong/blank the entire row wasn't written
+            if (anchorCol != null) {
+              const writtenSno = Number(r[anchorCol - minVC]);
+              if (writtenSno !== nextSno + i) { missingRows++; driveOk = false; continue; }
+            }
+
+            // Drive-link check
+            const want45  = (cuts[i].ratio === "4:5"  || cuts[i].ratio === "Both") ? cuts[i].url : "";
+            const want916 = (cuts[i].ratio === "9:16" || cuts[i].ratio === "Both") ? cuts[i].url : "";
+            const ok45  = colIndex.drive45  == null || skipCols.has(colIndex.drive45)  ||
+                          String(r[colIndex.drive45  - minVC]) === want45;
+            const ok916 = colIndex.drive916 == null || skipCols.has(colIndex.drive916) ||
+                          String(r[colIndex.drive916 - minVC]) === want916;
+            if (!ok45 || !ok916) driveOk = false;
+          }
+          verified = driveOk;
+        } else {
+          verified = true; // nothing to verify (all cols skipped)
+        }
       } catch (e) { /* verification is best-effort */ }
 
       const boundary = _boundarySnapshot(sheet, colIndex, headerRow, newLastDataRow);
@@ -720,10 +862,19 @@ function addEntries(payload) {
                    (skippedNames.length ? ` · SKIPPED (protected/config): ${skippedNames.join(", ")}` : "") +
                    (writeFailures.length ? ` · REJECTED by sheet validation: ${rejectedMsg}` : "") + `]`;
 
+      // On the happy path, show only the base message. Append diagnostics only when
+      // something actually went wrong (verification failure or cells rejected by the sheet).
+      const baseMsg = `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})`;
+      const verifyMsg = missingRows > 0
+        ? ` — ${missingRows} row(s) were not written to the sheet (check for merged cells or row-level protection on rows ${firstNewRow}–${newLastDataRow})`
+        : (!verified ? " — drive links did not read back correctly" : "");
+      const resultMsg = (!verified || writeFailures.length)
+        ? baseMsg + verifyMsg + diag
+        : baseMsg;
+
       return {
         ok:  true,
-        msg: `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})` +
-             (verified ? " — verified ✓" : " — NOT verified: drive links did not read back correctly") + diag,
+        msg: resultMsg,
         verified,
         nextSno:     String(newNextSno).padStart(5, "0"),
         lastDataRow: newLastDataRow,
@@ -895,30 +1046,54 @@ function getProtectedCols(sheet, lastCol) {
 
 // Writes only the columns in writtenCols (sorted, batched into contiguous ranges).
 // Untracked columns are never touched — prevents blanking helper/formula columns.
-// Writes column by column (not in contiguous multi-column blocks): the tracker
-// sheets use strict "reject input" data validation on most columns, and one
-// rejected value aborts the entire setValues call it is part of. Per-column
-// writes (with a per-cell fallback) contain the blast radius of a rejected
-// value to that single cell and report exactly what was rejected.
-// Returns an array of { col, row, val, err } for every cell the sheet refused.
+//
+// Groups consecutive written columns into runs and writes each run in a single
+// setValues call (e.g. cols 0-2, 4-16, 18-19 = 3 calls instead of ~18). This
+// replaces the old per-column loop which cost ~150 ms × N_cols ≈ 2.5 s.
+//
+// "Reject input" data validation still aborts the whole run if any cell in it
+// fails — the fallback re-tries column-by-column within that run, then
+// cell-by-cell for any column that still fails. Returns { col, row, val, err }
+// for every cell the sheet ultimately refused.
 function writeRows(sheet, firstNewRow, rows, writtenCols) {
-  const cols   = [...writtenCols].sort((a, b) => a - b);
+  const cols = [...writtenCols].sort((a, b) => a - b);
   const failed = [];
+  if (cols.length === 0) return failed;
 
-  cols.forEach(function(c) {
-    const colData = rows.map(function(row) { return [row[c]]; });
+  // Build contiguous runs: a run [c1, c2] means every column from c1 to c2 is
+  // in writtenCols and will be written together in one setValues call.
+  const runs = [];
+  let c1 = cols[0], c2 = cols[0];
+  for (let i = 1; i < cols.length; i++) {
+    if (cols[i] === c2 + 1) { c2 = cols[i]; }
+    else { runs.push([c1, c2]); c1 = cols[i]; c2 = cols[i]; }
+  }
+  runs.push([c1, c2]);
+
+  runs.forEach(function(run) {
+    const runC1   = run[0], runC2 = run[1];
+    const numCols = runC2 - runC1 + 1;
+    const block   = rows.map(function(row) { return row.slice(runC1, runC2 + 1); });
     try {
-      sheet.getRange(firstNewRow, c + 1, rows.length, 1).setValues(colData);
+      sheet.getRange(firstNewRow, runC1 + 1, rows.length, numCols).setValues(block);
     } catch (e) {
-      // Column write rejected (data validation / protection) — salvage cell by cell
-      rows.forEach(function(row, i) {
+      // Run-level rejection — fall back to column-by-column within the run
+      for (let c = runC1; c <= runC2; c++) {
+        const colData = rows.map(function(row) { return [row[c]]; });
         try {
-          sheet.getRange(firstNewRow + i, c + 1).setValue(row[c]);
+          sheet.getRange(firstNewRow, c + 1, rows.length, 1).setValues(colData);
         } catch (e2) {
-          failed.push({ col: c, row: firstNewRow + i, val: String(row[c]),
-                        err: String((e2 && e2.message) || e2) });
+          // Column-level rejection — fall back to cell-by-cell
+          rows.forEach(function(row, i) {
+            try {
+              sheet.getRange(firstNewRow + i, c + 1).setValue(row[c]);
+            } catch (e3) {
+              failed.push({ col: c, row: firstNewRow + i, val: String(row[c]),
+                            err: String((e3 && e3.message) || e3) });
+            }
+          });
         }
-      });
+      }
     }
   });
   return failed;
