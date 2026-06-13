@@ -801,28 +801,47 @@ function addEntries(payload) {
       const newNextSno     = nextSno + rows.length;
       const newTotalRows   = ls.totalRows + rows.length;
 
-      // Read-back verification: re-read only the drive columns (not the full row)
-      // to confirm each URL landed in the correct ratio column.
-      let verified = false;
+      // Flush pending writes before verifying — ensures setValues/setRichTextValues
+      // are committed to the sheet before getValues reads them back.
+      SpreadsheetApp.flush();
+
+      // Read-back verification: check SNO (anchor — confirms the row was written at all)
+      // and drive columns (confirms URLs landed in the correct ratio column).
+      let verified  = false;
+      let missingRows = 0; // rows where SNO was not written (row silently not persisted)
 
       try {
-        const verifyCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null && !skipCols.has(c));
+        const anchorCol = (colIndex.sno != null && !skipCols.has(colIndex.sno)) ? colIndex.sno : null;
+        const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null && !skipCols.has(c));
+        const verifyCols = [...(anchorCol != null ? [anchorCol] : []), ...driveCols];
+
         if (verifyCols.length > 0) {
           const minVC = Math.min(...verifyCols);
           const maxVC = Math.max(...verifyCols);
           const back  = sheet.getRange(firstNewRow, minVC + 1, rows.length, maxVC - minVC + 1).getValues();
-          verified = cuts.every((cut, i) => {
+
+          let driveOk = true;
+          for (let i = 0; i < cuts.length; i++) {
             const r = back[i];
-            const want45  = (cut.ratio === "4:5"  || cut.ratio === "Both") ? cut.url : "";
-            const want916 = (cut.ratio === "9:16" || cut.ratio === "Both") ? cut.url : "";
+
+            // Anchor check: if SNO is wrong/blank the entire row wasn't written
+            if (anchorCol != null) {
+              const writtenSno = Number(r[anchorCol - minVC]);
+              if (writtenSno !== nextSno + i) { missingRows++; driveOk = false; continue; }
+            }
+
+            // Drive-link check
+            const want45  = (cuts[i].ratio === "4:5"  || cuts[i].ratio === "Both") ? cuts[i].url : "";
+            const want916 = (cuts[i].ratio === "9:16" || cuts[i].ratio === "Both") ? cuts[i].url : "";
             const ok45  = colIndex.drive45  == null || skipCols.has(colIndex.drive45)  ||
                           String(r[colIndex.drive45  - minVC]) === want45;
             const ok916 = colIndex.drive916 == null || skipCols.has(colIndex.drive916) ||
                           String(r[colIndex.drive916 - minVC]) === want916;
-            return ok45 && ok916;
-          });
+            if (!ok45 || !ok916) driveOk = false;
+          }
+          verified = driveOk;
         } else {
-          verified = true; // nothing to verify (both cols skipped)
+          verified = true; // nothing to verify (all cols skipped)
         }
       } catch (e) { /* verification is best-effort */ }
 
@@ -846,8 +865,11 @@ function addEntries(payload) {
       // On the happy path, show only the base message. Append diagnostics only when
       // something actually went wrong (verification failure or cells rejected by the sheet).
       const baseMsg = `${rows.length} row${rows.length === 1 ? "" : "s"} added to ${sheet.getName()} (row${rows.length === 1 ? " " + firstNewRow : "s " + firstNewRow + "–" + newLastDataRow})`;
+      const verifyMsg = missingRows > 0
+        ? ` — ${missingRows} row(s) were not written to the sheet (check for merged cells or row-level protection on rows ${firstNewRow}–${newLastDataRow})`
+        : (!verified ? " — drive links did not read back correctly" : "");
       const resultMsg = (!verified || writeFailures.length)
-        ? baseMsg + (!verified ? " — drive links did not read back correctly" : "") + diag
+        ? baseMsg + verifyMsg + diag
         : baseMsg;
 
       return {
