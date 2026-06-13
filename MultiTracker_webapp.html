@@ -76,6 +76,15 @@ body {
 .tab-section {
   max-width: 800px; margin: 0 auto; padding: 16px 20px 0;
 }
+.panel {
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: var(--shadow); padding: 18px 18px 20px;
+}
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.panel-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -.1px; }
 .tab-section-label {
   font-size: 11px; font-weight: 600; text-transform: uppercase;
   letter-spacing: .6px; color: var(--muted); margin-bottom: 10px;
@@ -94,7 +103,8 @@ body {
   background: var(--dark); color: #fff; border-color: var(--dark);
 }
 .tab-info {
-  margin-top: 10px; font-size: 13px; color: var(--muted);
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--muted);
   min-height: 20px; display: flex; align-items: center; gap: 8px;
 }
 .tab-info-dot {
@@ -105,17 +115,17 @@ body {
 
 /* ── Boundary snapshot (mini sheet view) ── */
 .snap-title {
-  margin-top: 12px; font-size: 11px; font-weight: 600; color: var(--muted);
-  text-transform: uppercase; letter-spacing: .5px;
+  margin-top: 16px; font-size: 12px; font-weight: 600; color: var(--muted);
 }
 .snap-wrap {
-  margin-top: 6px; border: 1px solid #d0d7de; border-radius: 8px;
+  margin-top: 6px; border: 1px solid var(--border); border-radius: 8px;
   overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff;
 }
 .snap { border-collapse: collapse; width: 100%; font-size: 11px; min-width: 640px; }
 .snap th {
-  background: #1f4e79; color: #fff; padding: 6px 10px; text-align: left;
+  background: var(--bg); color: var(--muted); padding: 7px 10px; text-align: left;
   font-weight: 600; font-size: 10px; white-space: nowrap;
+  text-transform: uppercase; letter-spacing: .3px; border-bottom: 1px solid var(--border);
 }
 .snap th.sn-rn { background: #e8eaed; color: #5f6368; text-align: right; width: 34px; }
 .snap td {
@@ -132,14 +142,20 @@ body {
 .snap .sn-tag { color: var(--accent); font-weight: 700; white-space: nowrap; }
 .snap a { color: #1a73e8; text-decoration: underline; }
 
-/* ── Grouped tab nav ── */
-.grouped-tabs  { display: flex; flex-direction: column; gap: 12px; }
-.grouped-label {
-  display: block; font-size: 10px; font-weight: 700; color: var(--light);
-  text-transform: uppercase; letter-spacing: .6px; margin-bottom: 5px;
+/* ── Grouped tab nav (Option 1: compact inline labels) ── */
+.grouped-tabs    { display: flex; flex-direction: column; gap: 8px; }
+.grouped-tracker { display: flex; align-items: flex-start; gap: 12px; }
+.grouped-label   {
+  flex: 0 0 78px; margin-top: 7px;
+  font-size: 10px; font-weight: 700; color: var(--light);
+  text-transform: uppercase; letter-spacing: .6px;
 }
-.grouped-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.grouped-pills { display: flex; flex-wrap: wrap; gap: 6px; flex: 1; min-width: 0; }
 .grouped-pills .tab-pill { font-size: 12px; padding: 5px 13px; }
+
+/* Option 2 (stacked) -- swap the two rules above for these to switch:
+.grouped-tracker { display: block; }
+.grouped-label   { display: block; margin-bottom: 5px; } */
 
 /* ── Progress ── */
 .progress {
@@ -528,8 +544,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
 <!-- ── Tab selector ── -->
 <div class="tab-section">
-  <div class="tab-section-label" style="display:flex;align-items:center;justify-content:space-between;">
-    <span>Select tab</span>
+  <div class="panel">
+  <div class="panel-head">
+    <span class="panel-title">Select tab</span>
     <button class="btn-xs" onclick="openPersonModal()" title="Add a new person to this tracker's Buckets tab">+ Add person</button>
   </div>
   <div class="grouped-tabs" id="grouped-tabs">
@@ -540,6 +557,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     <span id="sheet-info"></span>
   </div>
   <div id="boundary-snap"></div>
+  </div>
 </div>
 
 <!-- ── Progress ── -->
@@ -1060,7 +1078,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     const title = document.createElement("div");
     title.className = "snap-title";
-    title.textContent = "Check where to paste — LIVE sheet view";
+    title.textContent = "Check where to paste — live sheet view";
     wrap.appendChild(title);
 
     const w = document.createElement("div"); w.className = "snap-wrap";

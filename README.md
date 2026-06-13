@@ -88,10 +88,12 @@ const TRACKERS = {
   },
   "Nutrition": {
     spreadsheetId: "...",
+    narratives: ["Pure & Natural/Ingredients", "Daily Energy", "Summer",
+      "Clinically Studied", "Zero Added Sugar", /* ...full list in code... */ ],
     tabProductMap: {
-      "Shilajit":  ["Shilajit Gummies", "Creatine Powder"],
+      "Shilajit":  ["Shilajit Gummies", "Shilajit Gummies Advanced"],
       "Creatine":  ["Creatine Powder", "Creatine Electrolyte"],
-      "Magnesium": ["Magnesium Gummies", "Creatine Powder"]
+      "Magnesium": ["Magnesium Gummies"]
     }
   }
 };
@@ -105,6 +107,7 @@ const TRACKERS = {
 | `tabProductMap` | object | Maps sheet tab names → allowed product options for that tab |
 | `skipColumns` | string[] | Column keys (from `HEADER_MAP`) whose cells are never written (e.g. auto-filled or locked) |
 | `hideFields` | string[] | Column keys whose form fields are hidden in the UI |
+| `narratives` | string[] | Optional override of the Broad Narrative dropdown options for this tracker (defaults to the Hair narrative list if omitted) |
 
 To add a new tracker: add an entry to `TRACKERS`, then run `refreshAllCaches()`.
 
@@ -114,12 +117,13 @@ To add a new tracker: add an entry to `TRACKERS`, then run `refreshAllCaches()`.
 
 ### Tracker and Tab Selection
 
-- **Tracker pills** appear at the top if more than one tracker is registered; clicking one switches context
-- **Tab pills** show the tabs defined in `tabProductMap` for the active tracker
-- Selecting a tab loads sheet context (entry count, next S.No.) via a single server call
-- Switching tabs **clears the Drive folder, cut details, and cached sheet context** immediately — no stale data from the previous tab can carry into a submit
-- Switching tabs **preserves all shared fields** — no rework needed if you pick the wrong tab
-- Switching trackers resets everything including shared fields
+- The nav is a **single grouped view**: every registered tracker's tabs are shown at once, grouped under a tracker label (HAIR / NUTRITION / BEARD). There is no separate "pick a tracker first" step — you click the tab you want directly.
+- Tabs come from each tracker's `tabProductMap`. Clicking a tab in a *different* tracker switches context (loads that tracker's dropdowns/people) and then activates the tab; clicking a tab in the *current* tracker just loads its sheet context.
+- Cross-tracker loads use a monotonic request counter so rapid clicks always apply only the latest response (no stale tab "snapping back").
+- Selecting a tab loads sheet context (entry count, next S.No., live sheet-view snapshot) via a single server call.
+- Switching tabs **clears the Drive folder, cut details, and cached sheet context** immediately — no stale data from the previous tab can carry into a submit.
+- Switching tabs within the same tracker **preserves all shared fields**; switching to a tab in another tracker resets tracker-scoped data (dropdowns, people) but keeps your shared field entries where still valid.
+- The web app guards against browser **back/forward** navigating away from the single-page app (`history.pushState` + `popstate`).
 
 ### Product Name (Tab-Driven)
 
@@ -142,8 +146,8 @@ Product options are **set per tab** in `tabProductMap`. They do not read from th
 These apply to every file in the batch:
 
 - Product Name, Date Added (defaults to today), INT/INF, Ad Type, Language, Can Take Live?
-- Person Full Name — **strict dropdown**: only names already in the tracker's Buckets tab (plus "None") are selectable. Selecting a name auto-fills Instagram from `personMap`; selecting "None" clears it
-- **New person names**: the only way to add a name is the **“+ Add person”** button (top right). It writes the name (and Instagram) to the chosen tracker's **Buckets tab** (columns H/I); if the target is the active tracker, the new name is appended to the dropdown and pre-selected. This keeps the sheet's own data-validation dropdowns consistent — free-form names can't be submitted
+- Person Full Name — **searchable combobox**, strict to Buckets names. Click the field (or the ▾ caret) to open the list, type to filter it live, and pick with the mouse or keyboard (↑/↓ to move, Enter to select, Esc to close). It is strict: only names already in the tracker's Buckets tab (plus "None") can be committed — if you type something that isn't a real name and click away, the field reverts. A hidden `#person` element holds the committed value (so submit, localStorage, and Instagram auto-fill read it unchanged). Selecting a name auto-fills Instagram from `personMap`; "None"/empty clears it
+- **New person names**: the only way to add a name is the **"+ Add person"** button (top right). It writes the name (and Instagram) to the chosen tracker's **Buckets tab** (columns H/I); if the target is the active tracker, the new name is added to the combobox list and auto-selected. This keeps the sheet's own data-validation dropdowns consistent — free-form names can't be submitted
 - Creator Type (incl. Meta Creator, YT Creator, Hair Warrior), Onboarding Month (only required when Person ≠ "None"), Raised By, Additional Info
 
 **Required fields** are marked with a red `*`. Submitting with any required field empty highlights the missing fields and scrolls to the first one.
@@ -200,6 +204,15 @@ Every submit re-validates the cached column map against the live header row: eac
 
 Only columns that were explicitly set by the submit are written. The server tracks a `writtenCols` Set and writes only those columns in contiguous batches — helper columns, formula columns, and anything not in the Set are never touched, even if they fall between two written columns.
 
+### Write Verification (Read-Back)
+
+After writing, the server calls `SpreadsheetApp.flush()` (forces pending writes to commit) and then **reads the rows back** to confirm they actually landed:
+
+1. **S.No. anchor** — for each new row it checks the S.No. cell holds the expected number. A missing/wrong S.No. means the row was **not persisted at all** (e.g. a merged cell or row-level protection silently swallowed the write), which is reported distinctly: *"N row(s) were not written to the sheet (check for merged cells or row-level protection on rows X–Y)"*.
+2. **Drive-link read-back** — confirms each URL landed in the correct ratio column (4:5 vs 9:16). A mismatch is reported as *"drive links did not read back correctly"*.
+
+On the happy path the banner shows only the clean success message; diagnostics (cuts received, columns written, skipped/protected columns, validation rejections) are appended **only** when verification fails or the sheet rejected a value.
+
 ### S.No. and Row Positioning
 
 - **Header row auto-detection**: scans the first 20 rows for a row matching ≥ 6 known column headers from `HEADER_MAP`. No hardcoded row numbers.
@@ -252,6 +265,21 @@ Drive link cells are written as **rich text hyperlinks** (URL is both display te
 
 ---
 
+## Sheet Maintenance Standards
+
+The detection and write logic relies on a few conventions. Keep these true and the app keeps working:
+
+- **Header row stays at row 1** with the exact header text in `HEADER_MAP`. Don't insert rows above it. Renaming a header? The cache auto-rebuilds on the next load, or clear `sc1_<tracker>|<tab>` from Script Properties to force it.
+- **Tab names must match the keys in `tabProductMap`.** If you rename a sheet tab, update the matching key in `TRACKERS` (in `MultiTracker_Code.gs`) — otherwise that tab won't appear in the nav / product mapping.
+- **Leave every cell blank below the last real entry.** The boundary detector finds the last row using the **Drive link** column and the **Ad Name formula** (a full ad name has 6+ underscore segments). It does **not** trust S.No. or `sheet.getLastRow()`. So:
+  - **Never pre-fill the Ad Name formula into empty template rows** — every such row then looks "real" and new entries write in the wrong place. The form fills the formula itself on submit.
+  - Don't pre-fill S.No. in blank rows (harmless for detection, but redundant — the form writes it).
+- **Don't replace the Ad Name formula with a static value.** A hardcoded string won't update; the form copies the live formula down. If a formula cell was manually cleared, the form re-fills it on the next write to that row.
+- **Buckets tab is the source of dropdowns/people** — don't delete or rename it. After editing Buckets, hit **Refresh dropdowns** (or run `refreshAllCaches()`).
+- **Protection / merged-cell changes** can silently block writes (see Write Verification). After changing protected ranges, refresh the cache so `protectedCols` is rebuilt.
+
+---
+
 ## Caching (Script Properties)
 
 All sheet reads are cached in **Script Properties** to keep the web app fast after the first load. Three cache tiers:
@@ -300,10 +328,13 @@ Narrative, ratio, creatorType, onboardingMonth, canLive options are hardcoded in
 ## Key Constants in MultiTracker_Code.gs
 
 ```js
-const TRACKERS = { ... };         // tracker registry — see above
-const HEADER_SEARCH_LIMIT = 20;   // rows to scan when locating the header row
-const DATA_SCAN_LIMIT     = 2000; // max rows to scan for last real entry (~1 year headroom)
+const TRACKERS = { ... };               // tracker registry — see above
+const DEPLOY_STAMP = "11 Jun 2026, ..."; // shown in the topbar; bump MANUALLY when cutting a deploy
+const HEADER_SEARCH_LIMIT = 20;         // rows to scan when locating the header row
+const DATA_SCAN_LIMIT     = 2000;       // max rows to scan for last real entry (~1 year headroom)
 ```
+
+> `DEPLOY_STAMP` is a **manual** string (an earlier attempt to auto-inject it in CI was reverted). Update it by hand when you want the topbar's "deployed …" label to reflect a notable release.
 
 `HEADER_MAP` maps internal field keys to exact column header strings as they appear in each sheet. Update it if a sheet uses non-standard header text.
 
