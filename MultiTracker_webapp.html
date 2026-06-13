@@ -608,9 +608,9 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class=”hint”>type to search · use “+ Add person” for new names</span></label>
-        <input type=”text” id=”person” list=”person-list” placeholder=”Type to search…” autocomplete=”off” oninput=”onPersonInput()”>
-        <datalist id=”person-list”></datalist>
+        <label>Person Full Name <span class=”hint”>type to filter · use “+ Add person” for new names</span></label>
+        <input type=”text” id=”person-search” placeholder=”Type to filter list…” autocomplete=”off” oninput=”filterPerson()” style=”margin-bottom:4px;”>
+        <select id=”person” onchange=”onPersonInput()”></select>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -767,7 +767,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   let currentTracker = "";
   let trackerNames   = [];
   let _vidPrevFocus  = null;
-  let _folderLoading = false;
+  let _folderLoading  = false;
+  let _allPersonOpts  = [];
 
   const LS_KEYS = ["intInf","adType","language","person","creatorType","instagram","raisedBy","canLive"];
   let sfaSnapshot = {};
@@ -816,13 +817,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     });
 
     populateDropdowns();
+    clearPersonSearch();
     restoreFromStorage();
-    // Clear restored person name if it isn't valid for this tracker
-    const _pEl = document.getElementById("person");
-    if (_pEl && _pEl.tagName === "INPUT") {
-      const _pv = _pEl.value.trim();
-      if (_pv && _pv !== "None" && !(opts.person || []).includes(_pv)) _pEl.value = "";
-    }
     onPersonInput();
 
     // Keep the hidden <select> in sync for onTabChange()
@@ -1082,14 +1078,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
 
-    // Person uses a datalist for searchable autocomplete.
-    const _pdl = document.getElementById(“person-list”);
-    if (_pdl) {
-      _pdl.innerHTML = “”;
-      (opts.person || []).forEach(function(pv) {
-        const po = document.createElement(“option”); po.value = pv; _pdl.appendChild(po);
-      });
-    }
+    _allPersonOpts = opts.person || [];
+    fill(“person”, _allPersonOpts);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);
@@ -1108,6 +1098,24 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const wrap = document.getElementById(wrapId); if (!wrap) return;
     wrap.innerHTML = "";
     wrap.appendChild(makeSelectField(selId, values, allowCustom, defaultVal));
+  }
+
+  function filterPerson() {
+    var q   = (document.getElementById("person-search").value || "").toLowerCase();
+    var sel = document.getElementById("person");
+    var prev = sel.value;
+    sel.innerHTML = "";
+    _allPersonOpts.filter(function(v) { return !q || v.toLowerCase().indexOf(q) !== -1; })
+      .forEach(function(v) {
+        var o = document.createElement("option"); o.value = v; o.textContent = v || "—";
+        sel.appendChild(o);
+      });
+    if (Array.from(sel.options).some(function(o) { return o.value === prev; })) sel.value = prev;
+    onPersonInput();
+  }
+
+  function clearPersonSearch() {
+    var s = document.getElementById("person-search"); if (s) s.value = "";
   }
 
   function onPersonInput() {
