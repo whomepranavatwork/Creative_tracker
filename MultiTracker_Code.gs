@@ -40,8 +40,8 @@ const TRACKERS = {
   }
 };
 
-// Injected automatically by CI (deploy-appsscript.yml) before clasp push.
-// To update manually: replace the string with the current IST date/time.
+// Update this string whenever you paste new code and create a new deployment.
+// It appears as small text in the top-left of the webapp.
 const DEPLOY_STAMP = "11 Jun 2026, 11:20 PM";
 
 const HEADER_SEARCH_LIMIT = 20;

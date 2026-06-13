@@ -608,9 +608,8 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class=”hint”>type to search · use “+ Add person” for new names</span></label>
-        <input type=”text” id=”person” list=”person-list” placeholder=”Type to search…” autocomplete=”off” oninput=”onPersonInput()”>
-        <datalist id=”person-list”></datalist>
+        <label>Person Full Name <span class="hint">from Buckets · use “+ Add person” for new names</span></label>
+        <select id="person" onchange="onPersonInput()"></select>
       </div>
       <div class="field">
         <label>Instagram Profile</label>
@@ -817,12 +816,6 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     populateDropdowns();
     restoreFromStorage();
-    // Clear restored person name if it isn't in this tracker's list
-    const personEl = document.getElementById("person");
-    if (personEl && personEl.tagName === "INPUT") {
-      const v = personEl.value.trim();
-      if (v && v !== "None" && !(opts.person || []).includes(v)) personEl.value = "";
-    }
     onPersonInput();
 
     // Keep the hidden <select> in sync for onTabChange()
@@ -1082,14 +1075,10 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     fill("all_funnel",      opts.funnel);
     fill("raisedBy",        opts.raisedBy);
 
-    // Person uses a datalist for searchable autocomplete. Server prepends “None”.
-    const personDl = document.getElementById(“person-list”);
-    if (personDl) {
-      personDl.innerHTML = “”;
-      (opts.person || []).forEach(v => {
-        const o = document.createElement(“option”); o.value = v; personDl.appendChild(o);
-      });
-    }
+    // Person is a strict dropdown — names must exist in the Buckets tab
+    // (so the sheet's data-validation dropdowns stay consistent). New names
+    // go in via the “+ Add person” button only. Server prepends "None".
+    fill("person", opts.person);
 
     buildSelectInDiv("all_ratio_wrap",     "all_ratio",     opts.ratio,     false);
     buildSelectInDiv("all_narrative_wrap", "all_narrative", opts.narrative, true);

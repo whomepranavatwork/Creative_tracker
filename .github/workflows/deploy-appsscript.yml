@@ -24,11 +24,6 @@ jobs:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
         run: echo "$CLASPRC_JSON" > ~/.clasprc.json
 
-      - name: Inject deploy timestamp
-        run: |
-          STAMP=$(TZ='Asia/Kolkata' date '+%d %b %Y, %I:%M %p IST')
-          sed -i "s|const DEPLOY_STAMP = \".*\";|const DEPLOY_STAMP = \"$STAMP\";|" MultiTracker_Code.gs
-
       - name: Push to Apps Script
         run: clasp push --force
 
