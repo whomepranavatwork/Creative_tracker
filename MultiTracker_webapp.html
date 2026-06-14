@@ -34,12 +34,17 @@ body {
 /* ── Top bar ── */
 .topbar {
   max-width: 800px; margin: 0 auto;
-  padding: 24px 20px 0;
+  padding: 14px 20px 0;
   display: flex; align-items: center; justify-content: space-between;
 }
+.topbar-left  { display: flex; align-items: center; gap: 10px; }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.mm-logo { height: 30px; width: auto; display: block; }
+.topbar-sep { width: 1px; height: 26px; background: var(--border); flex-shrink: 0; }
+.topbar-brand { display: flex; flex-direction: column; gap: 0; }
 .topbar-title {
-  font-size: 20px; font-weight: 700; letter-spacing: -.5px;
-  display: flex; align-items: center; gap: 8px;
+  font-size: 18px; font-weight: 700; letter-spacing: -.5px;
+  display: flex; align-items: center; gap: 6px; line-height: 1.2;
 }
 .topbar-meta { font-size: 12px; color: var(--muted); }
 #refresh-btn {
@@ -74,7 +79,7 @@ body {
 
 /* ── Tab selector ── */
 .tab-section {
-  max-width: 800px; margin: 0 auto; padding: 16px 20px 0;
+  max-width: 800px; margin: 0 auto; padding: 12px 20px 0;
 }
 .panel {
   background: var(--card); border: 1px solid var(--border);
@@ -532,11 +537,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
 <!-- ── Top bar ── -->
 <div class="topbar">
-  <div>
-    <div class="topbar-title">⚡ Creative Tracker</div>
-    <div id="deploy-stamp" style="font-size:10px;color:var(--light);margin-top:2px;letter-spacing:.2px;"></div>
+  <div class="topbar-left">
+    <svg class="mm-logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 82 32" aria-label="Man Matters">
+      <text x="0" y="14" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="13.5" fill="#2B4D8E" letter-spacing="-0.4">man</text>
+      <text x="0" y="29" font-family="system-ui,-apple-system,sans-serif" font-weight="800" font-size="13.5" fill="#2B4D8E" letter-spacing="-0.4">matters</text>
+      <text x="60" y="22" font-family="system-ui,-apple-system,sans-serif" font-weight="600" font-size="7" fill="#2B4D8E">&#8482;</text>
+    </svg>
+    <div class="topbar-sep"></div>
+    <div class="topbar-brand">
+      <div class="topbar-title">⚡ Creative Tracker</div>
+      <div id="deploy-stamp" style="font-size:10px;color:var(--light);margin-top:1px;letter-spacing:.2px;"></div>
+    </div>
   </div>
-  <div style="display:flex;align-items:center;gap:12px;">
+  <div class="topbar-right">
     <div class="topbar-meta" id="today-label"></div>
     <button id="refresh-btn" onclick="refreshDropdowns()" title="Refresh dropdowns from Buckets tab">↺ Refresh dropdowns</button>
   </div>
