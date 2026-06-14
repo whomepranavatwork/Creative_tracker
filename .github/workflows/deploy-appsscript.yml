@@ -36,12 +36,7 @@ jobs:
           DEPLOYMENT_ID: ${{ secrets.CLASP_DEPLOYMENT_ID }}
         run: |
           if [ -n "$DEPLOYMENT_ID" ]; then
-            echo "Targeting deployment ID: $DEPLOYMENT_ID"
-            echo "Expected live URL:        https://script.google.com/macros/s/$DEPLOYMENT_ID/exec"
             clasp deploy -i "$DEPLOYMENT_ID" -d "auto-deploy ${GITHUB_SHA::7}"
-            echo "::notice::Deployed ${GITHUB_SHA::7} to deployment $DEPLOYMENT_ID (https://script.google.com/macros/s/$DEPLOYMENT_ID/exec)"
-            echo "----- all deployments (verify the targeted ID matches your live URL) -----"
-            clasp deployments
           else
             echo "::warning::CLASP_DEPLOYMENT_ID secret not set — editor code updated, but the LIVE web app was NOT redeployed. Redeploy manually (Deploy → Manage deployments → New version) or add the secret."
           fi
