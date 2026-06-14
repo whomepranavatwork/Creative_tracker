@@ -120,8 +120,11 @@ body {
 
 /* ── Boundary snapshot (mini sheet view) ── */
 .snap-title {
-  margin-top: 16px; font-size: 12px; font-weight: 600; color: var(--muted);
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
 }
+.snap-meta { font-weight: 600; color: var(--muted); white-space: nowrap; }
 .snap-wrap {
   margin-top: 6px; border: 1px solid var(--border); border-radius: 8px;
   overflow-x: auto; -webkit-overflow-scrolling: touch; background: #fff;
@@ -944,6 +947,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     // Optimistic UI update so the pill responds instantly
     _activateTab(trackerName, tabName);
     resetBatch();
+    const tiSwitch = document.querySelector(".tab-info"); if (tiSwitch) tiSwitch.style.display = "";
     document.getElementById("sheet-info").textContent = "Switching tracker…";
     document.getElementById("tab-dot").classList.remove("visible");
 
@@ -985,6 +989,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const tab = document.getElementById("tab-name").value;
     setProductForTab(tab);
 
+    const tiLoad = document.querySelector(".tab-info"); if (tiLoad) tiLoad.style.display = "";
     document.getElementById("sheet-info").textContent = "Loading…";
     document.getElementById("tab-dot").classList.remove("visible");
     document.getElementById("boundary-snap").innerHTML = "";
@@ -1009,27 +1014,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
   // Shows the live count and a "verify" link that opens the sheet focused on the
   // exact row the NEXT entry will be written to.
   function renderSheetInfo(ctx) {
+    // Entry-count status line removed; Next S.No + verify now render in the
+    // boundary snapshot header (next to "Check where to paste").
     const info = document.getElementById("sheet-info");
-    info.textContent = "";
-    const txt = document.createElement("span");
-    txt.textContent = `${ctx.totalRows} entries · Next S.No: ${ctx.nextSno}`;
-    info.appendChild(txt);
-    if (ctx.sheetUrl && ctx.lastDataRow != null) {
-      const nextRow = ctx.lastDataRow + 1;
-      const a = document.createElement("a");
-      a.href = ctx.sheetUrl + "&range=A" + nextRow;
-      a.target = "_blank"; a.rel = "noopener noreferrer";
-      a.textContent = "↗ verify";
-      a.title = "Open the sheet at row " + nextRow + " — where the next entry will be written";
-      a.style.cssText = "margin-left:8px;color:var(--accent);text-decoration:none;font-weight:600;";
-      info.appendChild(a);
-    }
-    renderBoundary(ctx.boundary, ctx.lastDataRow);
+    if (info) info.textContent = "";
+    const tabInfo = document.querySelector(".tab-info");
+    if (tabInfo) tabInfo.style.display = "none";
+    renderBoundary(ctx);
   }
 
   // Mini sheet-view of the data boundary: last real rows, the blank rows below,
   // and a marker on the row the next entry will be written to.
-  function renderBoundary(boundary, lastDataRow) {
+  function renderBoundary(ctx) {
+    const boundary = ctx.boundary, lastDataRow = ctx.lastDataRow;
     const wrap = document.getElementById("boundary-snap");
     if (!wrap) return;
     wrap.innerHTML = "";
@@ -1088,6 +1085,20 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const title = document.createElement("div");
     title.className = "snap-title";
     title.textContent = "Check where to paste — live sheet view";
+    const snapMeta = document.createElement("span");
+    snapMeta.className = "snap-meta";
+    snapMeta.textContent = "Next S.No: " + ctx.nextSno;
+    if (ctx.sheetUrl && lastDataRow != null) {
+      const nextRow = lastDataRow + 1;
+      const a = document.createElement("a");
+      a.href = ctx.sheetUrl + "&range=A" + nextRow;
+      a.target = "_blank"; a.rel = "noopener noreferrer";
+      a.textContent = "↗ verify";
+      a.title = "Open the sheet at row " + nextRow + " — where the next entry will be written";
+      a.style.cssText = "margin-left:8px;color:var(--accent);text-decoration:none;font-weight:600;";
+      snapMeta.appendChild(a);
+    }
+    title.appendChild(snapMeta);
     wrap.appendChild(title);
 
     const w = document.createElement("div"); w.className = "snap-wrap";
