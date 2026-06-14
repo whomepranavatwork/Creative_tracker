@@ -1390,6 +1390,19 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
         narrative: document.getElementById("all_narrative")?.value,
         adFormat:  document.getElementById("all_adFormat")?.value
       };
+      // Carry the same-for-all selections into every per-cut row as the starting point.
+      const sfaVals = {
+        funnel:    getCutFieldValue("all_funnel"),
+        ratio:     getCutFieldValue("all_ratio"),
+        narrative: getCutFieldValue("all_narrative"),
+        adFormat:  getCutFieldValue("all_adFormat")
+      };
+      files.forEach((_, i) => {
+        setCutFieldValue("funnel_"    + i, sfaVals.funnel);
+        setCutFieldValue("ratio_"     + i, sfaVals.ratio);
+        setCutFieldValue("narrative_" + i, sfaVals.narrative);
+        setCutFieldValue("adFormat_"  + i, sfaVals.adFormat);
+      });
     }
     document.getElementById("all-same-panel").style.display = on ? "" : "none";
     document.getElementById("per-cut-panel").style.display  = on ? "none" : "";
@@ -1511,6 +1524,28 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
     const sel = document.getElementById(id);
     if (!sel) return "";
     return sel.value === "__custom__" ? "" : sel.value;
+  }
+
+  // Programmatically set a per-cut select to a value, adding the option if it
+  // isn't listed (handles custom "Other…" values copied from same-for-all).
+  function setCutFieldValue(id, val) {
+    if (val == null || val === "" || val === "__custom__") return;
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    let has = false;
+    for (let i = 0; i < sel.options.length; i++) {
+      if (sel.options[i].value === val) { has = true; break; }
+    }
+    if (!has) {
+      const o = document.createElement("option");
+      o.value = val; o.textContent = val;
+      const customOpt = sel.querySelector('option[value="__custom__"]');
+      if (customOpt) sel.insertBefore(o, customOpt); else sel.appendChild(o);
+    }
+    sel.value = val;
+    sel.style.display = "";
+    const inp = document.getElementById(id + "_custom");
+    if (inp) inp.style.display = "none";
   }
 
   function updateSelCount() {
