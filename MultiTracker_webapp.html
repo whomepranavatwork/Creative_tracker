@@ -667,7 +667,7 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
 
     <div class="g2">
       <div class="field">
-        <label>Person Full Name <span class="hint">from Buckets · use "+ Add person" for new names</span></label>
+        <label>Person Full Name <button type="button" class="btn-xs" onclick="openPersonModal()" title="Add a new person to this tracker's Buckets tab">+ Add person</button></label>
         <div class="combo" id="person-combo">
           <input type="text" id="person-input" placeholder="Search or select a name" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" oninput="personFilter()" onfocus="personOpen()" onblur="personBlur()" onkeydown="personKey(event)">
           <span class="combo-caret" onmousedown="event.preventDefault()" onclick="personToggle()">&#9662;</span>
