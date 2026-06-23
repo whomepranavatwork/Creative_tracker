@@ -808,10 +808,21 @@ function addEntries(payload) {
       // Read-back verification: check SNO (anchor — confirms the row was written at all)
       // and drive columns (confirms URLs landed in the correct ratio column).
       let verified  = false;
-      let missingRows = 0; // rows where SNO was not written (row silently not persisted)
+      let missingRows = 0; // rows whose anchor value didn't persist (row silently not written)
 
       try {
-        const anchorCol = (colIndex.sno != null && !skipCols.has(colIndex.sno)) ? colIndex.sno : null;
+        // S.No is a self-incrementing FORMULA (=TEXT(VALUE(A-above)+1,...)), so blank
+        // rows already display the exact S.No we expect — it can't prove a row was
+        // written. Anchor instead on a column we write with a known, non-empty value
+        // that is never formula-pre-filled (Person / Product / Raised By).
+        const anchorPick = [
+          { col: colIndex.person,   val: shared.person  || "None" },
+          { col: colIndex.product,  val: shared.product },
+          { col: colIndex.raisedBy, val: shared.raisedBy }
+        ].find(a => a.col != null && !skipCols.has(a.col) && writtenCols.has(a.col) &&
+                    String(a.val == null ? "" : a.val).trim() !== "");
+        const anchorCol = anchorPick ? anchorPick.col : null;
+        const anchorVal = anchorPick ? String(anchorPick.val).trim() : null;
         const driveCols = [colIndex.drive45, colIndex.drive916].filter(c => c != null && !skipCols.has(c));
         const verifyCols = [...(anchorCol != null ? [anchorCol] : []), ...driveCols];
 
@@ -824,10 +835,12 @@ function addEntries(payload) {
           for (let i = 0; i < cuts.length; i++) {
             const r = back[i];
 
-            // Anchor check: if SNO is wrong/blank the entire row wasn't written
+            // Anchor check: a written, non-formula column must read back as the value
+            // we wrote — proves the row actually persisted (S.No can't: it's a formula
+            // that's already correct in blank rows).
             if (anchorCol != null) {
-              const writtenSno = Number(r[anchorCol - minVC]);
-              if (writtenSno !== nextSno + i) { missingRows++; driveOk = false; continue; }
+              const got = String(r[anchorCol - minVC]).trim();
+              if (got !== anchorVal) { missingRows++; driveOk = false; continue; }
             }
 
             // Drive-link check
