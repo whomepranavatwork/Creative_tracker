@@ -991,6 +991,29 @@ function refreshAllCaches() {
   });
 }
 
+// Refresh button handler: invalidate + reload Buckets for EVERY tracker (dropdowns
+// come from each tracker's own Buckets tab, so a single-tracker refresh leaves the
+// others stale). Only the active tab of the active tracker is pre-warmed so the
+// button stays fast — other tabs rebuild lazily on first use.
+function refreshAllBuckets(activeTracker, activeTab) {
+  const props = PropertiesService.getScriptProperties();
+  Object.keys(TRACKERS).forEach(function(name) {
+    const t = TRACKERS[name];
+    props.deleteProperty(_spKey("bc1_",  name));
+    props.deleteProperty(_spKey("bc1p_", name));
+    Object.keys(t.tabProductMap).forEach(function(tabName) {
+      props.deleteProperty(_spKey("sc1_", name, tabName));
+      props.deleteProperty(_spKey("ls1_", name, tabName)); // legacy key
+    });
+    try { _loadBucketsFromSheet(name); } catch (e) { /* one tracker must not block others */ }
+  });
+  if (activeTracker && activeTab) {
+    try { getSheetContext(activeTab, activeTracker); } catch (e) {}
+  }
+  // Same shape as selectTracker so the client updates the active tracker immediately.
+  return selectTracker(activeTracker || Object.keys(TRACKERS)[0]);
+}
+
 // ── Sheet resolution ──────────────────────────────────────────
 function resolveSheet(tabName, trackerName) {
   const ss    = getSpreadsheetFor(trackerName);

@@ -981,13 +981,13 @@ button { font-family: inherit; border: none; cursor: pointer; border-radius: 12p
       .withSuccessHandler(data => {
         btn.disabled = false; btn.textContent = "↺ Refresh dropdowns";
         applyTrackerData(data);
-        showBanner("Dropdowns refreshed from Buckets tab.", "ok");
+        showBanner("Dropdowns refreshed from Buckets — all trackers.", "ok");
       })
       .withFailureHandler(err => {
         btn.disabled = false; btn.textContent = "↺ Refresh dropdowns";
         showBanner("Refresh failed: " + err.message, "err");
       })
-      .refreshCache(currentTracker, document.getElementById("tab-name").value || null);
+      .refreshAllBuckets(currentTracker, document.getElementById("tab-name").value || null);
   }
 
   // ── Tab switching ─────────────────────────────────────────
